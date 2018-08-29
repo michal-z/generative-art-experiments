@@ -1,0 +1,5 @@
+DirectXMath 3.13 (July 2018)
+imgui 1.63
+stb_perlin 0.3
+stb_image 2.19
+EASTL 3.12.01
