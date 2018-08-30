@@ -1,6 +1,6 @@
 @echo off
 
-set NAME=genexp001
+set NAME=genexp002
 if "%1" == "clean" if exist %NAME%-external.pch del %NAME%-external.pch
 
 if not defined CONFIG set CONFIG=%DEBUG_CONFIG%
