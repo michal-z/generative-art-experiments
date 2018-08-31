@@ -4,7 +4,7 @@ set FINAL=/O2 /DNDEBUG /MT
 set RELEASE=/Zi /O2 /DNDEBUG /MT
 set DEBUG=/Zi /Od /D_DEBUG /MTd
 
-::set CONFIG=%FINAL%
+set CONFIG=%FINAL%
 
 for /d %%i in (.\*) do (
 cd %%i

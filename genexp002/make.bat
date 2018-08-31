@@ -8,8 +8,8 @@ set RELEASE=/Zi /O2 /DNDEBUG /MT
 set DEBUG=/Zi /Od /D_DEBUG /MTd
 
 if not defined CONFIG set CONFIG=%DEBUG%
-CFLAGS set CFLAGS=%CONFIG% /EHa- /GR- /Gy /Gw /W3 /nologo /I"..\external"
-LFLAGS set LFLAGS=/incremental:no /opt:ref /machine:x64
+set CFLAGS=%CONFIG% /EHa- /GR- /Gy /Gw /W3 /nologo /I"..\external"
+set LFLAGS=/incremental:no /opt:ref /machine:x64
 
 set ERROR=0
 

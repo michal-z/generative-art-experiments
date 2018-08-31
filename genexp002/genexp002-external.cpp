@@ -6,6 +6,7 @@
 #include "imgui.cpp"
 #include "imgui_draw.cpp"
 #include "imgui_demo.cpp"
+#include "imgui_widgets.cpp"
 #include "EASTL/source/allocator_eastl.cpp"
 #include "EASTL/source/assert.cpp"
 #include "EASTL/source/fixed_pool.cpp"
