@@ -3,9 +3,13 @@
 set NAME=genexp001
 if "%1" == "clean" if exist %NAME%-external.pch del %NAME%-external.pch
 
-if not defined CONFIG set CONFIG=%DEBUG_CONFIG%
-if not defined CFLAGS set CFLAGS=/Zi %CONFIG% /EHa- /GR- /Gy /Gw /W3 /nologo /I"..\external"
-if not defined LFLAGS set LFLAGS=/incremental:no /opt:ref /machine:x64
+set FINAL=/O2 /DNDEBUG /MT
+set RELEASE=/Zi /O2 /DNDEBUG /MT
+set DEBUG=/Zi /Od /D_DEBUG /MTd
+
+if not defined CONFIG set CONFIG=%DEBUG%
+CFLAGS set CFLAGS=%CONFIG% /EHa- /GR- /Gy /Gw /W3 /nologo /I"..\external"
+LFLAGS set LFLAGS=/incremental:no /opt:ref /machine:x64
 
 set ERROR=0
 
