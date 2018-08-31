@@ -3,6 +3,7 @@
 #include "stb_image.h"
 #define STB_PERLIN_IMPLEMENTATION
 #include "stb_perlin.h"
+#define IMGUI_STB_NAMESPACE ImGuiStb
 #include "imgui.cpp"
 #include "imgui_draw.cpp"
 #include "imgui_demo.cpp"
