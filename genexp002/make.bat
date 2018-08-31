@@ -1,4 +1,5 @@
 @echo off
+setlocal enableextensions
 
 set NAME=genexp002
 if "%1" == "clean" if exist %NAME%-external.pch del %NAME%-external.pch
@@ -20,9 +21,9 @@ if exist %NAME%.exe del %NAME%.exe
 %FXC% /D VS_IMGUI /E VsImgui /Fo data\shaders\imgui-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
 %FXC% /D PS_IMGUI /E PsImgui /Fo data\shaders\imgui-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
 
-if not exist %NAME%-external.pch cl %CFLAGS% /c /Yc%NAME%-external.h %NAME%-external.cpp
+if not exist %NAME%-external.pch (cl %CFLAGS% /c /Yc%NAME%-external.h %NAME%-external.cpp)
 cl %CFLAGS% /Yu%NAME%-external.h %NAME%-main.cpp /link %LFLAGS% %NAME%-external.obj kernel32.lib user32.lib gdi32.lib /out:%NAME%.exe
-if ERRORLEVEL 1 set ERROR=1
+if ERRORLEVEL 1 (set ERROR=1)
 if exist %NAME%-main.obj del %NAME%-main.obj
 if "%1" == "run" if exist %NAME%.exe %NAME%.exe
 
