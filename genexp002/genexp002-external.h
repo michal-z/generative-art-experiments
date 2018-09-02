@@ -16,6 +16,7 @@
 #include "EASTL/vector.h"
 #include "EASTL/hash_map.h"
 #include "EASTL/algorithm.h"
+#include "EASTL/sort.h"
 
 #include "DirectXMath.h"
 #include "d3dx12.h"

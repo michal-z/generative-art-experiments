@@ -1,7 +1,7 @@
 ﻿#include "genexp002-external.h"
 #include "genexp002.h"
 #include "genexp002-common.cpp"
-#include "genexp002-graphics.cpp"
+#include "genexp002-directx12.cpp"
 #include "genexp002-imgui.cpp"
 
 
