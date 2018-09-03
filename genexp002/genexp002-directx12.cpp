@@ -1,5 +1,5 @@
 static void
-InitializeDirectX12(directx12& Dx)
+InitializeDirectX12(TDirectX12& Dx)
 {
     IDXGIFactory4* Factory;
 #ifdef _DEBUG
@@ -150,7 +150,7 @@ InitializeDirectX12(directx12& Dx)
     {
         for (uint32_t Index = 0; Index < 2; ++Index)
         {
-            gpu_memory_heap& UploadHeap = Dx.UploadMemoryHeaps[Index];
+            TGpuMemoryHeap& UploadHeap = Dx.UploadMemoryHeaps[Index];
             UploadHeap.Size = 0;
             UploadHeap.Capacity = 8*1024*1024;
             UploadHeap.CpuStart = 0;
@@ -174,7 +174,7 @@ InitializeDirectX12(directx12& Dx)
 }
 
 static void
-ShutdownDirectX12(directx12& Dx)
+ShutdownDirectX12(TDirectX12& Dx)
 {
     // @Incomplete: Release all resources.
     SAFE_RELEASE(Dx.CmdList);
@@ -192,7 +192,7 @@ ShutdownDirectX12(directx12& Dx)
 }
 
 static void
-PresentFrame(directx12& Dx)
+PresentFrame(TDirectX12& Dx)
 {
     Dx.SwapChain->Present(0, 0);
     Dx.CmdQueue->Signal(Dx.FrameFence, ++Dx.FrameCount);
@@ -213,16 +213,16 @@ PresentFrame(directx12& Dx)
 }
 
 static void
-WaitForGpu(directx12& Dx)
+WaitForGpu(TDirectX12& Dx)
 {
     Dx.CmdQueue->Signal(Dx.FrameFence, ++Dx.FrameCount);
     Dx.FrameFence->SetEventOnCompletion(Dx.FrameCount, Dx.FrameFenceEvent);
     WaitForSingleObject(Dx.FrameFenceEvent, INFINITE);
 }
 
-static descriptor_heap&
-GetDescriptorHeap(directx12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRIPTOR_HEAP_FLAGS Flags,
-                  uint32_t& OutDescriptorSize)
+static TDescriptorHeap&
+GetDescriptorHeap(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRIPTOR_HEAP_FLAGS Flags,
+                  unsigned& OutDescriptorSize)
 {
     if (Type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
     {
@@ -248,10 +248,10 @@ GetDescriptorHeap(directx12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRIPT
 }
 
 static void
-AllocateDescriptors(directx12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Count, D3D12_CPU_DESCRIPTOR_HANDLE& OutFirst)
+AllocateDescriptors(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE& OutFirst)
 {
     uint32_t DescriptorSize;
-    descriptor_heap& DescriptorHeap = GetDescriptorHeap(Dx, Type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, DescriptorSize);
+    TDescriptorHeap& DescriptorHeap = GetDescriptorHeap(Dx, Type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, DescriptorSize);
 
     assert((DescriptorHeap.Size + Count) < DescriptorHeap.Capacity);
 
@@ -261,12 +261,12 @@ AllocateDescriptors(directx12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32_t Cou
 }
 
 static void
-AllocateGpuDescriptors(directx12& Dx, uint32_t Count,
+AllocateGpuDescriptors(TDirectX12& Dx, unsigned Count,
                        D3D12_CPU_DESCRIPTOR_HANDLE& OutFirstCpu,
                        D3D12_GPU_DESCRIPTOR_HANDLE& OutFirstGpu)
 {
     uint32_t DescriptorSize;
-    descriptor_heap& DescriptorHeap = GetDescriptorHeap(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+    TDescriptorHeap& DescriptorHeap = GetDescriptorHeap(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
                                                         D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, DescriptorSize);
 
     assert((DescriptorHeap.Size + Count) < DescriptorHeap.Capacity);
@@ -278,14 +278,14 @@ AllocateGpuDescriptors(directx12& Dx, uint32_t Count,
 }
 
 static void*
-AllocateGpuUploadMemory(directx12& Dx, uint32_t Size, D3D12_GPU_VIRTUAL_ADDRESS& OutGpuAddress)
+AllocateGpuUploadMemory(TDirectX12& Dx, unsigned Size, D3D12_GPU_VIRTUAL_ADDRESS& OutGpuAddress)
 {
     assert(Size > 0);
 
     if (Size & 0xff) // always align to 256 bytes
         Size = (Size + 255) & ~0xff;
 
-    gpu_memory_heap& UploadHeap = Dx.UploadMemoryHeaps[Dx.FrameIndex];
+    TGpuMemoryHeap& UploadHeap = Dx.UploadMemoryHeaps[Dx.FrameIndex];
     assert((UploadHeap.Size + Size) < UploadHeap.Capacity);
 
     void* CpuAddr = UploadHeap.CpuStart + UploadHeap.Size;

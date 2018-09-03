@@ -1,4 +1,4 @@
-struct descriptor_heap
+struct TDescriptorHeap
 {
     ID3D12DescriptorHeap* Heap;
     D3D12_CPU_DESCRIPTOR_HANDLE CpuStart;
@@ -7,7 +7,7 @@ struct descriptor_heap
     unsigned Capacity;
 };
 
-struct gpu_memory_heap
+struct TGpuMemoryHeap
 {
     ID3D12Resource* Heap;
     uint8_t* CpuStart;
@@ -16,7 +16,7 @@ struct gpu_memory_heap
     unsigned Capacity;
 };
 
-struct directx12
+struct TDirectX12
 {
     ID3D12Device* Device;
     ID3D12CommandQueue* CmdQueue;
@@ -37,15 +37,15 @@ struct directx12
 
     eastl::vector<ID3D12Resource*> IntermediateResources;
 
-    descriptor_heap RenderTargetHeap;
-    descriptor_heap DepthStencilHeap;
+    TDescriptorHeap RenderTargetHeap;
+    TDescriptorHeap DepthStencilHeap;
 
     // shader visible descriptor heaps
-    descriptor_heap ShaderVisibleHeaps[2];
+    TDescriptorHeap ShaderVisibleHeaps[2];
 
     // non-shader visible descriptor heap
-    descriptor_heap NonShaderVisibleHeap;
+    TDescriptorHeap NonShaderVisibleHeap;
 
-    gpu_memory_heap UploadMemoryHeaps[2];
+    TGpuMemoryHeap UploadMemoryHeaps[2];
 };
 // vim: set ts=4 sw=4 expandtab:

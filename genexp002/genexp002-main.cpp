@@ -140,7 +140,7 @@ InitializeWindow(const char* Name, unsigned Width, unsigned Height)
 }
 
 static void
-BeginFrame(directx12& Dx)
+BeginFrame(TDirectX12& Dx)
 {
     ID3D12CommandAllocator* CmdAlloc = Dx.CmdAlloc[Dx.FrameIndex];
     ID3D12GraphicsCommandList* CmdList = Dx.CmdList;
@@ -167,7 +167,7 @@ BeginFrame(directx12& Dx)
 }
 
 static void
-EndFrame(directx12& Dx)
+EndFrame(TDirectX12& Dx)
 {
     Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx.SwapBuffers[Dx.BackBufferIndex],
                                                                          D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -183,7 +183,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     SetProcessDPIAware();
     ImGui::CreateContext();
 
-    directx12 Dx = {};
+    TDirectX12 Dx = {};
     const char* Name = "eneida";
     Dx.Window = InitializeWindow(Name, 1280, 720);
     InitializeDirectX12(Dx);
@@ -213,7 +213,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     Io.DisplaySize = ImVec2((float)Dx.Resolution[0], (float)Dx.Resolution[1]);
     ImGui::GetStyle().WindowRounding = 0.0f;
 
-    imgui_renderer GuiRenderer = {};
+    TGuiRenderer GuiRenderer = {};
     InitializeGuiRenderer(GuiRenderer, Dx);
 
     // Upload resources to the GPU.

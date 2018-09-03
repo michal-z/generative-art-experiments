@@ -1,19 +1,19 @@
-struct imgui_frame_resources
+struct TGuiFrameResources
 {
     ID3D12Resource* VertexBuffer;
     void* VertexBufferCpuAddress;
-    uint32_t VertexBufferSize;
+    unsigned VertexBufferSize;
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
 
     ID3D12Resource* IndexBuffer;
     void* IndexBufferCpuAddress;
-    uint32_t IndexBufferSize;
+    unsigned IndexBufferSize;
     D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 };
 
-struct imgui_renderer
+struct TGuiRenderer
 {
-    imgui_frame_resources FrameResources[2];
+    TGuiFrameResources FrameResources[2];
 
     ID3D12RootSignature* RootSignature;
     ID3D12PipelineState* PipelineState;

@@ -1,5 +1,5 @@
 static void
-InitializeGuiRenderer(imgui_renderer& Gui, directx12& Dx)
+InitializeGuiRenderer(TGuiRenderer& Gui, TDirectX12& Dx)
 {
     uint8_t* Pixels;
     int Width, Height;
@@ -75,14 +75,14 @@ InitializeGuiRenderer(imgui_renderer& Gui, directx12& Dx)
 }
 
 static void
-RenderGui(imgui_renderer& Gui, directx12& Dx)
+RenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
 {
     ImDrawData* DrawData = ImGui::GetDrawData();
     if (!DrawData || DrawData->TotalVtxCount == 0)
         return;
 
     ImGuiIO& Io = ImGui::GetIO();
-    imgui_frame_resources& Frame = Gui.FrameResources[Dx.FrameIndex];
+    TGuiFrameResources& Frame = Gui.FrameResources[Dx.FrameIndex];
 
     const int ViewportWidth = (int)(Io.DisplaySize.x * Io.DisplayFramebufferScale.x);
     const int ViewportHeight = (int)(Io.DisplaySize.y * Io.DisplayFramebufferScale.y);
