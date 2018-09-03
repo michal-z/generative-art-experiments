@@ -169,11 +169,11 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
     for (;;)
     {
-        MSG msg = {};
-        if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+        MSG Message = {};
+        if (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
         {
-            DispatchMessage(&msg);
-            if (msg.message == WM_QUIT)
+            DispatchMessage(&Message);
+            if (Message.message == WM_QUIT)
                 break;
         }
         else

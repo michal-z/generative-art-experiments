@@ -1,4 +1,4 @@
-struct sphere
+struct TSphere
 {
     D2D1_ELLIPSE Shape;
     D2D1_COLOR_F Color;
@@ -10,7 +10,7 @@ static const unsigned k_SphereCount = 500;
 
 static ID2D1SolidColorBrush* s_FillBrush;
 static ID2D1SolidColorBrush* s_StrokeBrush;
-static sphere* s_Spheres;
+static TSphere* s_Spheres;
 
 // returns [0.0f, 1.0f)
 static inline float
@@ -52,7 +52,7 @@ Initialize()
     VHR(s_Graphics->CreateSolidColorBrush(ColorF(0), &s_FillBrush));
     VHR(s_Graphics->CreateSolidColorBrush(ColorF(0, 0.125f), &s_StrokeBrush));
 
-    s_Spheres = new sphere[k_SphereCount];
+    s_Spheres = new TSphere[k_SphereCount];
     for (unsigned SphereIdx = 0; SphereIdx < k_SphereCount; ++SphereIdx)
     {
         float X = Randomf(0.0f, (float)k_ResolutionX);

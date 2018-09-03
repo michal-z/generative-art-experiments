@@ -184,8 +184,8 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     ImGui::CreateContext();
 
     TDirectX12 Dx = {};
-    const char* Name = "eneida";
-    Dx.Window = InitializeWindow(Name, 1280, 720);
+    const char* k_Name = "genexp002";
+    Dx.Window = InitializeWindow(k_Name, 1280, 720);
     InitializeDirectX12(Dx);
 
     ImGuiIO& Io = ImGui::GetIO();
@@ -243,7 +243,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         {
             double Time;
             float DeltaTime;
-            UpdateFrameStats(Dx.Window, Name, Time, DeltaTime);
+            UpdateFrameStats(Dx.Window, k_Name, Time, DeltaTime);
 
             ImGuiIO& Io = ImGui::GetIO();
             Io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;

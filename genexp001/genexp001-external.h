@@ -13,8 +13,6 @@
 #include <d2d1_3.h>
 #include <d3d11.h>
 
-#include "stb_perlin.h"
-
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "d3d11.lib")
