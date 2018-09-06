@@ -2,6 +2,7 @@
 #include "genexp002.h"
 #include "genexp002-common.cpp"
 #include "genexp002-directx12.cpp"
+#include "genexp002.cpp"
 #include "genexp002-imgui.cpp"
 
 
@@ -216,6 +217,9 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     TGuiRenderer GuiRenderer = {};
     InitializeGuiRenderer(GuiRenderer, Dx);
 
+    TGenExp002 E002 = {};
+    Initialize(E002, Dx);
+
     // Upload resources to the GPU.
     VHR(Dx.CmdList->Close());
     Dx.CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx.CmdList);
@@ -225,9 +229,6 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         SAFE_RELEASE(Resource);
 
     Dx.IntermediateResources.clear();
-
-    uint64_t Seed[2] = { 1278, 9092 };
-    uint64_t Rng = RngHash128(Seed);
 
 
     for (;;)
@@ -253,7 +254,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
             BeginFrame(Dx);
             ImGui::NewFrame();
-            ImGui::ShowDemoWindow();
+            Update(E002, Dx, Time, DeltaTime);
             ImGui::Render();
             RenderGui(GuiRenderer, Dx);
             EndFrame(Dx);
