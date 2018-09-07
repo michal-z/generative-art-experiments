@@ -6,14 +6,14 @@
     "DescriptorTable(SRV(t0), visibility = SHADER_VISIBILITY_PIXEL), " \
     "StaticSampler(s0, filter = FILTER_MIN_MAG_MIP_LINEAR, visibility = SHADER_VISIBILITY_PIXEL)"
 
-struct input_data
+struct TInputData
 {
     float2 Position : POSITION;
     float2 Texcoord : TEXCOORD0;
     float4 Color : COLOR;
 };
 
-struct output_data
+struct TOutputData
 {
     float4 Position : SV_Position;
     float2 Texcoord : TEXCOORD0;
@@ -22,16 +22,16 @@ struct output_data
 
 #if defined(VS_IMGUI)
 
-struct constant_data
+struct TConstantData
 {
     float4x4 Matrix;
 };
-ConstantBuffer<constant_data> s_Cb : register(b0);
+ConstantBuffer<TConstantData> s_Cb : register(b0);
 
-[RootSignature(RsDecl)]
-output_data VsImgui(input_data Input)
+[RootSignature(RsDecl)] TOutputData
+VsImgui(TInputData Input)
 {
-    output_data Output;
+    TOutputData Output;
     Output.Position = mul(float4(Input.Position, 0.0f, 1.0f), s_Cb.Matrix);
     Output.Texcoord = Input.Texcoord;
     Output.Color = Input.Color;
@@ -40,15 +40,30 @@ output_data VsImgui(input_data Input)
 
 #elif defined(PS_IMGUI)
 
-Texture2D s_ImGuiTexture : register(t0);
-SamplerState s_ImGuiSampler : register(s0);
+Texture2D s_GuiTexture : register(t0);
+SamplerState s_GuiSampler : register(s0);
 
-[RootSignature(RsDecl)]
-float4 PsImgui(output_data Input) : SV_Target0
+[RootSignature(RsDecl)] float4
+PsImgui(TOutputData Input) : SV_Target0
 {
-    return Input.Color * s_ImGuiTexture.Sample(s_ImGuiSampler, Input.Texcoord);
+    return Input.Color * s_GuiTexture.Sample(s_GuiSampler, Input.Texcoord);
 }
 
 #endif
-#endif // #if defined(VS_IMGUI) || defined(PS_IMGUI)
+#elif defined(VS_FULL_TRIANGLE) || defined(PS_DISPLAY_CANVAS)
+
+#if defined(VS_FULL_TRIANGLE)
+[RootSignature("RootFlags(0)")] float4
+VsFullTriangle(uint VertexId : SV_VertexID) : SV_Position
+{
+    float2 Positions[] = { float2(-1.0f, -1.0f), float2(-1.0f, 3.0f), float2(3.0f, -1.0f) };
+    return float4(Positions[VertexId], 0.0f, 1.0f);
+}
+
+#elif defined(PS_DISPLAY_CANVAS)
+#endif
+
+#else
+#error "define shader to compile"
+#endif
 // vim: set ts=4 sw=4 expandtab:

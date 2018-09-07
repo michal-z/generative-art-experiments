@@ -161,10 +161,8 @@ BeginFrame(TDirectX12& Dx)
     D3D12_CPU_DESCRIPTOR_HANDLE BackBufferDescriptor = Dx.RenderTargetHeap.CpuStart;
     BackBufferDescriptor.ptr += Dx.BackBufferIndex * Dx.DescriptorSizeRtv;
 
-    const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
-
     CmdList->OMSetRenderTargets(1, &BackBufferDescriptor, 0, nullptr);
-    CmdList->ClearRenderTargetView(BackBufferDescriptor, ClearColor, 0, nullptr);
+    CmdList->ClearRenderTargetView(BackBufferDescriptor, XMVECTORF32{ 0.0f, 0.2f, 0.4f, 1.0f }, 0, nullptr);
 }
 
 static void
@@ -186,7 +184,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
     TDirectX12 Dx = {};
     const char* k_Name = "genexp002";
-    Dx.Window = InitializeWindow(k_Name, 1280, 720);
+    Dx.Window = InitializeWindow(k_Name, 1024, 1024);
     InitializeDirectX12(Dx);
 
     ImGuiIO& Io = ImGui::GetIO();
