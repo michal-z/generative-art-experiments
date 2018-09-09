@@ -52,17 +52,41 @@ PsImgui(TOutputData Input) : SV_Target0
 #endif
 #elif defined(VS_FULL_TRIANGLE) || defined(PS_DISPLAY_CANVAS)
 
+#define RsDecl \
+    "RootFlags(0), " \
+    "DescriptorTable(SRV(t0), visibility = SHADER_VISIBILITY_PIXEL), " \
+    "StaticSampler(s0, filter = FILTER_MIN_MAG_MIP_LINEAR, visibility = SHADER_VISIBILITY_PIXEL)"
+
+struct TOutputData
+{
+    float4 Position : SV_Position;
+    float2 Texcoord : TEXCOORD0;
+};
+
 #if defined(VS_FULL_TRIANGLE)
-[RootSignature("RootFlags(0)")] float4
-VsFullTriangle(uint VertexId : SV_VertexID) : SV_Position
+
+[RootSignature(RsDecl)] TOutputData
+VsFullTriangle(uint VertexId : SV_VertexID)
 {
     float2 Positions[] = { float2(-1.0f, -1.0f), float2(-1.0f, 3.0f), float2(3.0f, -1.0f) };
-    return float4(Positions[VertexId], 0.0f, 1.0f);
+    TOutputData Output;
+    Output.Position = float4(Positions[VertexId], 0.0f, 1.0f);
+    Output.Texcoord = 0.5f + 0.5f * Positions[VertexId];
+    return Output;
 }
 
 #elif defined(PS_DISPLAY_CANVAS)
-#endif
 
+Texture2D s_CanvasTexture : register(t0);
+SamplerState s_CanvasSampler : register(s0);
+
+[RootSignature(RsDecl)] float4
+PsDisplayCanvas(TOutputData Input) : SV_Target0
+{
+    return s_CanvasTexture.Sample(s_CanvasSampler, Input.Texcoord);
+}
+
+#endif
 #else
 #error "define shader to compile"
 #endif

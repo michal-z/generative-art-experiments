@@ -20,7 +20,14 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
 
         AllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1, E002.CanvasDescriptor);
         Dx.Device->CreateRenderTargetView(Resource, nullptr, E002.CanvasDescriptor);
+
+        Dx.CmdList->OMSetRenderTargets(1, &E002.CanvasDescriptor, 0, nullptr);
+        Dx.CmdList->ClearRenderTargetView(E002.CanvasDescriptor, XMVECTORF32{ 0.0f }, 0, nullptr);
+        Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Resource,
+                                                                             D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
     }
+
 }
 
 static void
