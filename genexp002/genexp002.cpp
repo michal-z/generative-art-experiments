@@ -41,7 +41,7 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
     }
     // CanvasDisplay shaders
     {
-        eastl::vector<uint8_t> CsoVs = LoadFile("data/shaders/full-triangle-vs.cso");
+        eastl::vector<uint8_t> CsoVs = LoadFile("data/shaders/display-canvas-vs.cso");
         eastl::vector<uint8_t> CsoPs = LoadFile("data/shaders/display-canvas-ps.cso");
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
