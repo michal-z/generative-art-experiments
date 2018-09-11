@@ -55,6 +55,30 @@ AllocateGpuDescriptors(TDirectX12& Dx, unsigned Count,
     DescriptorHeap.Size += Count;
 }
 
+static D3D12_GPU_DESCRIPTOR_HANDLE
+CopyDescriptorsToGpu(TDirectX12& Dx, unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE Source)
+{
+    D3D12_CPU_DESCRIPTOR_HANDLE DestinationCpu;
+    D3D12_GPU_DESCRIPTOR_HANDLE DestinationGpu;
+    AllocateGpuDescriptors(Dx, Count, DestinationCpu, DestinationGpu);
+    Dx.Device->CopyDescriptorsSimple(Count, DestinationCpu, Source, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    return DestinationGpu;
+}
+
+static inline D3D12_CPU_DESCRIPTOR_HANDLE
+GetBackBufferRtv(TDirectX12& Dx)
+{
+    D3D12_CPU_DESCRIPTOR_HANDLE BackBufferRtv = Dx.RenderTargetHeap.CpuStart;
+    BackBufferRtv.ptr += Dx.BackBufferIndex * Dx.DescriptorSizeRtv;
+    return BackBufferRtv;
+}
+
+static inline void
+SetDescriptorHeap(TDirectX12& Dx)
+{
+    Dx.CmdList->SetDescriptorHeaps(1, &Dx.ShaderVisibleHeaps[Dx.FrameIndex].Heap);
+}
+
 static void*
 AllocateGpuUploadMemory(TDirectX12& Dx, unsigned Size, D3D12_GPU_VIRTUAL_ADDRESS& OutGpuAddress)
 {

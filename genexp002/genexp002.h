@@ -3,7 +3,13 @@
 
 struct TGenExp002
 {
-    eastl::vector<ID3D12Resource*> Dx12Resources;
-    D3D12_CPU_DESCRIPTOR_HANDLE CanvasDescriptor;
+    ID3D12Resource* CanvasTex;
+    D3D12_CPU_DESCRIPTOR_HANDLE CanvasRtv;
+    D3D12_CPU_DESCRIPTOR_HANDLE CanvasSrv;
+    ID3D12PipelineState* CanvasDisplayPso;
+    ID3D12RootSignature* CanvasDisplayRsi;
+
+    ID3D12PipelineState* LinePso;
+    ID3D12RootSignature* LineRsi;
 };
 // vim: set ts=4 sw=4 expandtab:

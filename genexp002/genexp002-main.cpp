@@ -149,7 +149,7 @@ BeginFrame(TDirectX12& Dx)
     CmdAlloc->Reset();
     CmdList->Reset(CmdAlloc, nullptr);
 
-    Dx.CmdList->SetDescriptorHeaps(1, &Dx.ShaderVisibleHeaps[Dx.FrameIndex].Heap);
+    SetDescriptorHeap(Dx);
 
     CmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(0.0f, 0.0f, (float)Dx.Resolution[0], (float)Dx.Resolution[1]));
     CmdList->RSSetScissorRects(1, &CD3DX12_RECT(0, 0, Dx.Resolution[0], Dx.Resolution[1]));
@@ -157,12 +157,6 @@ BeginFrame(TDirectX12& Dx)
     CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx.SwapBuffers[Dx.BackBufferIndex],
                                                                       D3D12_RESOURCE_STATE_PRESENT,
                                                                       D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-    D3D12_CPU_DESCRIPTOR_HANDLE BackBufferDescriptor = Dx.RenderTargetHeap.CpuStart;
-    BackBufferDescriptor.ptr += Dx.BackBufferIndex * Dx.DescriptorSizeRtv;
-
-    CmdList->OMSetRenderTargets(1, &BackBufferDescriptor, 0, nullptr);
-    CmdList->ClearRenderTargetView(BackBufferDescriptor, XMVECTORF32{ 0.0f, 0.2f, 0.4f, 1.0f }, 0, nullptr);
 }
 
 static void
