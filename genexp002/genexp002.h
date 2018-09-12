@@ -11,5 +11,7 @@ struct TGenExp002
 
     ID3D12PipelineState* LinePso;
     ID3D12RootSignature* LineRsi;
+
+    ID3D12Resource* PointBuf[2];
 };
 // vim: set ts=4 sw=4 expandtab:

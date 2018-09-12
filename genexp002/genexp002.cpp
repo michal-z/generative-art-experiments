@@ -61,6 +61,34 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
     }
     // Line shaders
     {
+        eastl::vector<uint8_t> CsoVs = LoadFile("data/shaders/line-vs.cso");
+        eastl::vector<uint8_t> CsoPs = LoadFile("data/shaders/line-ps.cso");
+
+        D3D12_INPUT_ELEMENT_DESC InputElements[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        };
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
+        PsoDesc.InputLayout = { InputElements, (UINT)eastl::size(InputElements) };
+        PsoDesc.VS = { CsoVs.data(), CsoVs.size() };
+        PsoDesc.PS = { CsoPs.data(), CsoPs.size() };
+        PsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+        PsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        PsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+        PsoDesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
+        PsoDesc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+        PsoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+        PsoDesc.SampleMask = UINT_MAX;
+        PsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+        PsoDesc.NumRenderTargets = 1;
+        PsoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        PsoDesc.SampleDesc.Count = 1;
+
+        VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&E002.LinePso)));
+        VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&E002.LineRsi)));
+    }
+    // Point buffers
+    {
     }
 }
 
