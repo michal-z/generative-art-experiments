@@ -19,12 +19,12 @@ set ERROR=0
 if exist data\shaders\*.cso del data\shaders\*.cso
 if exist %NAME%.exe del %NAME%.exe
 
-%FXC% /D VS_IMGUI /E VsImgui /Fo data\shaders\imgui-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D PS_IMGUI /E PsImgui /Fo data\shaders\imgui-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D VS_DISPLAY_CANVAS /E VsDisplayCanvas /Fo data\shaders\display-canvas-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D PS_DISPLAY_CANVAS /E PsDisplayCanvas /Fo data\shaders\display-canvas-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D VS_LINE /E VsLine /Fo data\shaders\line-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D PS_LINE /E PsLine /Fo data\shaders\line-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D VS_IMGUI /E FVertexShader /Fo data\shaders\imgui-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D PS_IMGUI /E FPixelShader /Fo data\shaders\imgui-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D VS_DISPLAY_CANVAS /E FVertexShader /Fo data\shaders\display-canvas-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D PS_DISPLAY_CANVAS /E FPixelShader /Fo data\shaders\display-canvas-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D VS_LINE /E FVertexShader /Fo data\shaders\line-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D PS_LINE /E FPixelShader /Fo data\shaders\line-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
 
 if not exist %NAME%-external.pch (cl %CFLAGS% /c /Yc%NAME%-external.h %NAME%-external.cpp)
 cl %CFLAGS% /Yu%NAME%-external.h %NAME%-main.cpp /link %LFLAGS% %NAME%-external.obj kernel32.lib user32.lib gdi32.lib /out:%NAME%.exe

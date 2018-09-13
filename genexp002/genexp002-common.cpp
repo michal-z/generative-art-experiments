@@ -1,5 +1,5 @@
 static eastl::vector<uint8_t>
-LoadFile(const char* FileName)
+FLoadFile(const char* FileName)
 {
     FILE* File = fopen(FileName, "rb");
     assert(File);
@@ -14,7 +14,7 @@ LoadFile(const char* FileName)
 }
 
 static double
-GetAbsoluteTime()
+FGetAbsoluteTime()
 {
     static LARGE_INTEGER StartCounter;
     static LARGE_INTEGER Frequency;
@@ -26,6 +26,24 @@ GetAbsoluteTime()
     LARGE_INTEGER Counter;
     QueryPerformanceCounter(&Counter);
     return (Counter.QuadPart - StartCounter.QuadPart) / (double)Frequency.QuadPart;
+}
+
+// returns [0.0f, 1.0f)
+static inline float
+FRandomf()
+{
+	unsigned exponent = 127;
+	unsigned significand = (unsigned)(rand() & 0x7fff); // get 15 random bits
+	unsigned result = (exponent << 23) | (significand << 8);
+	return *(float*)&result - 1.0f;
+}
+
+// returns [begin, end)
+static inline float
+FRandomf(float begin, float end)
+{
+	assert(begin < end);
+	return begin + (end - begin) * FRandomf();
 }
 
 /*
@@ -66,8 +84,8 @@ rng_hash_128:
 .size        rng_hash_128, .-rng_hash_128 
 */
 
-static uint64_t
-RngHash128(uint64_t Seed[2])
+static unsigned
+FRngHash128(uint64_t Seed[2])
 {
 	uint64_t Rax = Seed[1];
 	uint64_t Rcx = 7319936632422683419ull;
@@ -82,6 +100,6 @@ RngHash128(uint64_t Seed[2])
 	Rax = _umul128(Rax, Rcx, &Rdx);
 	Rax = Rax + Rsi;
 	Rax = Rax + Rdx;
-	return Rax;
+	return (unsigned)Rax;
 }
 // vim: set ts=4 sw=4 expandtab:

@@ -1,15 +1,29 @@
 static void
-Update(TGenExp002& E002, TDirectX12& Dx, double Time, float DeltaTime)
+FUpdate(TGenExp002& E002, TDirectX12& Dx, double Time, float DeltaTime)
 {
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
+
+    TFrameResources& Frame = E002.Frames[Dx.FrameIndex];
+    {
+        XMFLOAT2* Ptr = (XMFLOAT2*)Frame.PointsCpuAddress;
+        *Ptr++ = XMFLOAT2(-0.5f + FRandomf(-0.05f, 0.05f), -0.5f + FRandomf(-0.05f, 0.05f));
+        *Ptr++ = XMFLOAT2(0.5f + FRandomf(-0.05f, 0.05f), 0.15f + FRandomf(-0.05f, 0.05f));
+    }
+
+    Dx.CmdList->OMSetRenderTargets(1, &E002.CanvasRtv, 0, nullptr);
+    Dx.CmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+    Dx.CmdList->SetPipelineState(E002.LinePso);
+    Dx.CmdList->SetGraphicsRootSignature(E002.LineRsi);
+    Dx.CmdList->IASetVertexBuffers(0, 1, &Frame.PointsVbv);
+    Dx.CmdList->DrawInstanced(2, 1, 0, 0);
 
     Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(E002.CanvasTex, D3D12_RESOURCE_STATE_RENDER_TARGET,
                                                                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-    Dx.CmdList->OMSetRenderTargets(1, &GetBackBufferRtv(Dx), 0, nullptr);
+    Dx.CmdList->OMSetRenderTargets(1, &FGetBackBufferRtv(Dx), 0, nullptr);
     Dx.CmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     Dx.CmdList->SetPipelineState(E002.CanvasDisplayPso);
     Dx.CmdList->SetGraphicsRootSignature(E002.CanvasDisplayRsi);
-    Dx.CmdList->SetGraphicsRootDescriptorTable(0, CopyDescriptorsToGpu(Dx, 1, E002.CanvasSrv));
+    Dx.CmdList->SetGraphicsRootDescriptorTable(0, FCopyDescriptorsToGpu(Dx, 1, E002.CanvasSrv));
     Dx.CmdList->DrawInstanced(3, 1, 0, 0);
     Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(E002.CanvasTex,
                                                                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
@@ -17,7 +31,29 @@ Update(TGenExp002& E002, TDirectX12& Dx, double Time, float DeltaTime)
 }
 
 static void
-Initialize(TGenExp002& E002, TDirectX12& Dx)
+FInitializeFrameResources(TGenExp002& E002, TDirectX12& Dx, unsigned FrameIndex)
+{
+    TFrameResources& Frame = E002.Frames[FrameIndex];
+
+    // Points buffer
+    {
+        const unsigned KSize = 128 * 1024;
+        ID3D12Resource* Buffer = E002.Resources.push_back();
+        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+                                               &CD3DX12_RESOURCE_DESC::Buffer(KSize),
+                                               D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                               IID_PPV_ARGS(&Buffer)));
+
+        VHR(Buffer->Map(0, &CD3DX12_RANGE(0, 0), &Frame.PointsCpuAddress));
+
+        Frame.PointsVbv.BufferLocation = Buffer->GetGPUVirtualAddress();
+        Frame.PointsVbv.StrideInBytes = sizeof(XMFLOAT2);
+        Frame.PointsVbv.SizeInBytes = KSize;
+    }
+}
+
+static void
+FInitialize(TGenExp002& E002, TDirectX12& Dx)
 {
     // Canvas resources
     {
@@ -30,10 +66,10 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
                                                &ImageDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &ClearValue,
                                                IID_PPV_ARGS(&E002.CanvasTex)));
 
-        AllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1, E002.CanvasRtv);
+        FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1, E002.CanvasRtv);
         Dx.Device->CreateRenderTargetView(E002.CanvasTex, nullptr, E002.CanvasRtv);
 
-        AllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, E002.CanvasSrv);
+        FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, E002.CanvasSrv);
         Dx.Device->CreateShaderResourceView(E002.CanvasTex, nullptr, E002.CanvasSrv);
 
         Dx.CmdList->OMSetRenderTargets(1, &E002.CanvasRtv, 0, nullptr);
@@ -41,8 +77,8 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
     }
     // CanvasDisplay shaders
     {
-        eastl::vector<uint8_t> CsoVs = LoadFile("data/shaders/display-canvas-vs.cso");
-        eastl::vector<uint8_t> CsoPs = LoadFile("data/shaders/display-canvas-ps.cso");
+        eastl::vector<uint8_t> CsoVs = FLoadFile("data/shaders/display-canvas-vs.cso");
+        eastl::vector<uint8_t> CsoPs = FLoadFile("data/shaders/display-canvas-ps.cso");
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
         PsoDesc.VS = { CsoVs.data(), CsoVs.size() };
@@ -61,8 +97,8 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
     }
     // Line shaders
     {
-        eastl::vector<uint8_t> CsoVs = LoadFile("data/shaders/line-vs.cso");
-        eastl::vector<uint8_t> CsoPs = LoadFile("data/shaders/line-ps.cso");
+        eastl::vector<uint8_t> CsoVs = FLoadFile("data/shaders/line-vs.cso");
+        eastl::vector<uint8_t> CsoPs = FLoadFile("data/shaders/line-ps.cso");
 
         D3D12_INPUT_ELEMENT_DESC InputElements[] =
         {
@@ -87,14 +123,15 @@ Initialize(TGenExp002& E002, TDirectX12& Dx)
         VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&E002.LinePso)));
         VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&E002.LineRsi)));
     }
-    // Point buffers
-    {
-    }
+    FInitializeFrameResources(E002, Dx, 0);
+    FInitializeFrameResources(E002, Dx, 1);
 }
 
 static void
-Shutdown(TGenExp002& E002, TDirectX12& Dx)
+FShutdown(TGenExp002& E002)
 {
-    WaitForGpu(Dx);
+    // @Incomplete: Release all resources.
+    for (ID3D12Resource* Resource : E002.Resources)
+        SAFE_RELEASE(Resource);
 }
 // vim: set ts=4 sw=4 expandtab:

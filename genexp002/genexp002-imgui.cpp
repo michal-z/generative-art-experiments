@@ -1,5 +1,5 @@
 static void
-InitializeGuiRenderer(TGuiRenderer& Gui, TDirectX12& Dx)
+FInitializeGui(TGuiRenderer& Gui, TDirectX12& Dx)
 {
     uint8_t* Pixels;
     int Width, Height;
@@ -36,7 +36,7 @@ InitializeGuiRenderer(TGuiRenderer& Gui, TDirectX12& Dx)
     SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     SrvDesc.Texture2D.MipLevels = 1;
 
-    AllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, Gui.FontTextureDescriptor);
+    FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, Gui.FontTextureDescriptor);
     Dx.Device->CreateShaderResourceView(Gui.FontTexture, &SrvDesc, Gui.FontTextureDescriptor);
 
 
@@ -47,8 +47,8 @@ InitializeGuiRenderer(TGuiRenderer& Gui, TDirectX12& Dx)
         { "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
-    eastl::vector<uint8_t> CsoVs = LoadFile("data/shaders/imgui-vs.cso");
-    eastl::vector<uint8_t> CsoPs = LoadFile("data/shaders/imgui-ps.cso");
+    eastl::vector<uint8_t> CsoVs = FLoadFile("data/shaders/imgui-vs.cso");
+    eastl::vector<uint8_t> CsoPs = FLoadFile("data/shaders/imgui-ps.cso");
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
     PsoDesc.InputLayout = { InputElements, (unsigned)eastl::size(InputElements) };
@@ -75,7 +75,7 @@ InitializeGuiRenderer(TGuiRenderer& Gui, TDirectX12& Dx)
 }
 
 static void
-RenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
+FRenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
 {
     ImDrawData* DrawData = ImGui::GetDrawData();
     if (!DrawData || DrawData->TotalVtxCount == 0)
@@ -137,7 +137,7 @@ RenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
     }
 
     D3D12_GPU_VIRTUAL_ADDRESS ConstantBufferGpuAddress;
-    void* ConstantBufferCpuAddress = AllocateGpuUploadMemory(Dx, 64, ConstantBufferGpuAddress);
+    void* ConstantBufferCpuAddress = FAllocateGpuUploadMemory(Dx, 64, ConstantBufferGpuAddress);
 
     // update constant buffer
     {
@@ -157,13 +157,7 @@ RenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
 
     Dx.CmdList->SetGraphicsRootSignature(Gui.RootSignature);
     Dx.CmdList->SetGraphicsRootConstantBufferView(0, ConstantBufferGpuAddress);
-    {
-        D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle;
-        D3D12_GPU_DESCRIPTOR_HANDLE GpuHandle;
-        AllocateGpuDescriptors(Dx, 1, CpuHandle, GpuHandle);
-        Dx.Device->CopyDescriptorsSimple(1, CpuHandle, Gui.FontTextureDescriptor, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        Dx.CmdList->SetGraphicsRootDescriptorTable(1, GpuHandle);
-    }
+    Dx.CmdList->SetGraphicsRootDescriptorTable(1, FCopyDescriptorsToGpu(Dx, 1, Gui.FontTextureDescriptor));
 
     Dx.CmdList->IASetVertexBuffers(0, 1, &Frame.VertexBufferView);
     Dx.CmdList->IASetIndexBuffer(&Frame.IndexBufferView);
@@ -193,5 +187,11 @@ RenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
         }
         VertexOffset += DrawList->VtxBuffer.size();
     }
+}
+
+static void
+FShutdownGui(TGuiRenderer& Gui)
+{
+    // @Incomplete: Release all resources.
 }
 // vim: set ts=4 sw=4 expandtab:

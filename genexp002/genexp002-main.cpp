@@ -19,7 +19,7 @@ void *operator new[](size_t Size, size_t Alignment, size_t AlignmentOffset, cons
 }
 
 static void
-UpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDeltaTime)
+FUpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDeltaTime)
 {
     static double PreviousTime = -1.0;
     static double HeaderRefreshTime = 0.0;
@@ -27,11 +27,11 @@ UpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDelta
 
     if (PreviousTime < 0.0)
     {
-        PreviousTime = GetAbsoluteTime();
+        PreviousTime = FGetAbsoluteTime();
         HeaderRefreshTime = PreviousTime;
     }
 
-    OutTime = GetAbsoluteTime();
+    OutTime = FGetAbsoluteTime();
     OutDeltaTime = (float)(OutTime - PreviousTime);
     PreviousTime = OutTime;
 
@@ -49,7 +49,7 @@ UpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDelta
 }
 
 static LRESULT CALLBACK
-ProcessWindowMessage(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
+FProcessWindowMessage(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
     ImGuiIO& Io = ImGui::GetIO();
 
@@ -117,10 +117,10 @@ ProcessWindowMessage(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 }
 
 static HWND
-InitializeWindow(const char* Name, unsigned Width, unsigned Height)
+FInitializeWindow(const char* Name, unsigned Width, unsigned Height)
 {
     WNDCLASS WinClass = {};
-    WinClass.lpfnWndProc = ProcessWindowMessage;
+    WinClass.lpfnWndProc = FProcessWindowMessage;
     WinClass.hInstance = GetModuleHandle(nullptr);
     WinClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
     WinClass.lpszClassName = Name;
@@ -141,7 +141,7 @@ InitializeWindow(const char* Name, unsigned Width, unsigned Height)
 }
 
 static void
-BeginFrame(TDirectX12& Dx)
+FBeginFrame(TDirectX12& Dx)
 {
     ID3D12CommandAllocator* CmdAlloc = Dx.CmdAlloc[Dx.FrameIndex];
     ID3D12GraphicsCommandList* CmdList = Dx.CmdList;
@@ -149,7 +149,7 @@ BeginFrame(TDirectX12& Dx)
     CmdAlloc->Reset();
     CmdList->Reset(CmdAlloc, nullptr);
 
-    SetDescriptorHeap(Dx);
+    FSetDescriptorHeap(Dx);
 
     CmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(0.0f, 0.0f, (float)Dx.Resolution[0], (float)Dx.Resolution[1]));
     CmdList->RSSetScissorRects(1, &CD3DX12_RECT(0, 0, Dx.Resolution[0], Dx.Resolution[1]));
@@ -160,7 +160,7 @@ BeginFrame(TDirectX12& Dx)
 }
 
 static void
-EndFrame(TDirectX12& Dx)
+FEndFrame(TDirectX12& Dx)
 {
     Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx.SwapBuffers[Dx.BackBufferIndex],
                                                                          D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -176,10 +176,12 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     SetProcessDPIAware();
     ImGui::CreateContext();
 
+#define KExperimentName "genexp002"
+#define KExperimentResolutionX 1024
+#define KExperimentResolutionY 1024
     TDirectX12 Dx = {};
-    const char* k_Name = "genexp002";
-    Dx.Window = InitializeWindow(k_Name, 1024, 1024);
-    InitializeDirectX12(Dx);
+    Dx.Window = FInitializeWindow(KExperimentName, KExperimentResolutionX, KExperimentResolutionY);
+    FInitializeDirectX12(Dx);
 
     ImGuiIO& Io = ImGui::GetIO();
     Io.KeyMap[ImGuiKey_Tab] = VK_TAB;
@@ -206,16 +208,16 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     Io.DisplaySize = ImVec2((float)Dx.Resolution[0], (float)Dx.Resolution[1]);
     ImGui::GetStyle().WindowRounding = 0.0f;
 
-    TGuiRenderer GuiRenderer = {};
-    InitializeGuiRenderer(GuiRenderer, Dx);
+    TGuiRenderer Gui = {};
+    FInitializeGui(Gui, Dx);
 
     TGenExp002 E002 = {};
-    Initialize(E002, Dx);
+    FInitialize(E002, Dx);
 
     // Upload resources to the GPU.
     VHR(Dx.CmdList->Close());
     Dx.CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx.CmdList);
-    WaitForGpu(Dx);
+    FWaitForGpu(Dx);
 
     for (ID3D12Resource* Resource : Dx.IntermediateResources)
         SAFE_RELEASE(Resource);
@@ -236,7 +238,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         {
             double Time;
             float DeltaTime;
-            UpdateFrameStats(Dx.Window, k_Name, Time, DeltaTime);
+            FUpdateFrameStats(Dx.Window, KExperimentName, Time, DeltaTime);
 
             ImGuiIO& Io = ImGui::GetIO();
             Io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -244,16 +246,20 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
             Io.KeyAlt = (GetKeyState(VK_MENU) & 0x8000) != 0;
             Io.DeltaTime = DeltaTime;
 
-            BeginFrame(Dx);
+            FBeginFrame(Dx);
             ImGui::NewFrame();
-            Update(E002, Dx, Time, DeltaTime);
+            FUpdate(E002, Dx, Time, DeltaTime);
             ImGui::Render();
-            RenderGui(GuiRenderer, Dx);
-            EndFrame(Dx);
-            PresentFrame(Dx);
+            FRenderGui(Gui, Dx);
+            FEndFrame(Dx);
+            FPresentFrame(Dx);
         }
     }
 
+    FWaitForGpu(Dx);
+    FShutdown(E002);
+    FShutdownGui(Gui);
+    FShutdownDirectX12(Dx);
     return 0;
 }
 // vim: set ts=4 sw=4 expandtab:

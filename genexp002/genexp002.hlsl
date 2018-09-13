@@ -2,7 +2,7 @@
 #if defined(VS_IMGUI) || defined(PS_IMGUI)
 //=============================================================================
 
-#define Rsi \
+#define KRsi \
     "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " \
     "CBV(b0, visibility = SHADER_VISIBILITY_VERTEX), " \
     "DescriptorTable(SRV(t0), visibility = SHADER_VISIBILITY_PIXEL), " \
@@ -28,14 +28,14 @@ struct TConstantData
 {
     float4x4 Matrix;
 };
-ConstantBuffer<TConstantData> s_Cb : register(b0);
+ConstantBuffer<TConstantData> GCb : register(b0);
 
-[RootSignature(Rsi)]
+[RootSignature(KRsi)]
 TPixelData
-VsImgui(TVertexData Input)
+FVertexShader(TVertexData Input)
 {
     TPixelData Output;
-    Output.Position = mul(float4(Input.Position, 0.0f, 1.0f), s_Cb.Matrix);
+    Output.Position = mul(float4(Input.Position, 0.0f, 1.0f), GCb.Matrix);
     Output.Texcoord = Input.Texcoord;
     Output.Color = Input.Color;
     return Output;
@@ -43,14 +43,14 @@ VsImgui(TVertexData Input)
 
 #elif defined(PS_IMGUI)
 
-Texture2D s_GuiTexture : register(t0);
-SamplerState s_GuiSampler : register(s0);
+Texture2D GGuiTexture : register(t0);
+SamplerState GGuiSampler : register(s0);
 
-[RootSignature(Rsi)]
+[RootSignature(KRsi)]
 float4
-PsImgui(TPixelData Input) : SV_Target0
+FPixelShader(TPixelData Input) : SV_Target0
 {
-    return Input.Color * s_GuiTexture.Sample(s_GuiSampler, Input.Texcoord);
+    return Input.Color * GGuiTexture.Sample(GGuiSampler, Input.Texcoord);
 }
 
 #endif
@@ -58,7 +58,7 @@ PsImgui(TPixelData Input) : SV_Target0
 #elif defined(VS_DISPLAY_CANVAS) || defined(PS_DISPLAY_CANVAS)
 //=============================================================================
 
-#define Rsi \
+#define KRsi \
     "RootFlags(0), " \
     "DescriptorTable(SRV(t0), visibility = SHADER_VISIBILITY_PIXEL), " \
     "StaticSampler(s0, filter = FILTER_MIN_MAG_MIP_LINEAR, visibility = SHADER_VISIBILITY_PIXEL)"
@@ -71,9 +71,9 @@ struct TPixelData
 
 #if defined(VS_DISPLAY_CANVAS)
 
-[RootSignature(Rsi)]
+[RootSignature(KRsi)]
 TPixelData
-VsDisplayCanvas(uint VertexId : SV_VertexID)
+FVertexShader(uint VertexId : SV_VertexID)
 {
     float2 Positions[] = { float2(-1.0f, -1.0f), float2(-1.0f, 3.0f), float2(3.0f, -1.0f) };
     TPixelData Output;
@@ -84,14 +84,14 @@ VsDisplayCanvas(uint VertexId : SV_VertexID)
 
 #elif defined(PS_DISPLAY_CANVAS)
 
-Texture2D s_CanvasTexture : register(t0);
-SamplerState s_CanvasSampler : register(s0);
+Texture2D GCanvasTexture : register(t0);
+SamplerState GCanvasSampler : register(s0);
 
-[RootSignature(Rsi)]
+[RootSignature(KRsi)]
 float4
-PsDisplayCanvas(TPixelData Input) : SV_Target0
+FPixelShader(TPixelData Input) : SV_Target0
 {
-    return s_CanvasTexture.Sample(s_CanvasSampler, Input.Texcoord);
+    return GCanvasTexture.Sample(GCanvasSampler, Input.Texcoord);
 }
 
 #endif
@@ -99,7 +99,7 @@ PsDisplayCanvas(TPixelData Input) : SV_Target0
 #elif defined(VS_LINE) || defined(PS_LINE)
 //=============================================================================
 
-#define Rsi \
+#define KRsi \
     "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)"
 
 struct TVertexData
@@ -114,9 +114,9 @@ struct TPixelData
 
 #if defined(VS_LINE)
 
-[RootSignature(Rsi)]
+[RootSignature(KRsi)]
 TPixelData
-VsLine(TVertexData Input)
+FVertexShader(TVertexData Input)
 {
     TPixelData Output;
     Output.Position = float4(Input.Position, 0.0f, 1.0f);
@@ -125,9 +125,9 @@ VsLine(TVertexData Input)
 
 #elif defined(PS_LINE)
 
-[RootSignature(Rsi)]
+[RootSignature(KRsi)]
 float4
-PsLine(TPixelData Input) : SV_Target0
+FPixelShader(TPixelData Input) : SV_Target0
 {
     return float4(0.0f, 0.0f, 0.0f, 0.01f);
 }
