@@ -18,6 +18,9 @@ WM_DESTROY = 0002h
 VK_ESCAPE = 01Bh
 SRCCOPY = 0x00CC0020
 
+K_WindowStyle equ WS_OVERLAPPED+WS_SYSMENU+WS_CAPTION+WS_MINIMIZEBOX
+K_WindowPixelsPerSide equ 1024
+
 K_StackSize equ 1024+24
 virtual at rsp
   rept ((K_StackSize-24)/32) N:0 { yword#N: rb 32*N }
@@ -59,12 +62,11 @@ F_ProcessWindowMessage:
 falign
 F_InitializeWindow:
             sub         rsp, K_StackSize
-            ;push        rsi
             ; create window class
             lea         rax, [F_ProcessWindowMessage]
+            lea         rcx, [G_ApplicationName]
             mov         [G_WindowClass.lpfnWndProc], rax
-            lea         rax, [G_ApplicationName]
-            mov         [G_WindowClass.lpszClassName], rax
+            mov         [G_WindowClass.lpszClassName], rcx
             xor         ecx, ecx
             icall       GetModuleHandle
             mov         [G_WindowClass.hInstance], rax
@@ -76,6 +78,19 @@ F_InitializeWindow:
             icall       RegisterClass
             test        eax, eax
             jz          .Error
+            ; compute window size
+            mov         eax, K_WindowPixelsPerSide
+            mov         [G_Rect.right], eax
+            mov         [G_Rect.bottom], eax
+            lea         rcx, [G_Rect]
+            mov         edx, K_WindowStyle
+            xor         r8d, r8d
+            icall       AdjustWindowRect
+            mov         r10d, [G_Rect.right]
+            mov         r11d, [G_Rect.bottom]
+            sub         r10d, [G_Rect.left]
+            sub         r11d, [G_Rect.top]
+            ; create window
             mov         eax, 1
             add         rsp, K_StackSize
             ret
@@ -159,6 +174,13 @@ G_BitmapInfoHeader:
   .biYPelsPerMeter dd 0
   .biClrUsed dd 0
   .biClrImportant dd 0
+
+align 8
+G_Rect:
+  .left dd 0
+  .top dd 0
+  .right dd 0
+  .bottom dd 0
 
 align 8
 G_Kernel32 dq 0
