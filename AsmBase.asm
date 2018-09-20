@@ -53,15 +53,17 @@ F_ProcessWindowMessage:
             icall       PostQuitMessage
             xor         eax, eax
             jmp         .Return
-.Destroy:   icall       PostQuitMessage
+.Destroy:   xor         ecx, ecx
+            icall       PostQuitMessage
             xor         eax, eax
-            jmp         .Return
 .Return:    add         rsp, K_StackSize
             ret
 
 falign
 F_InitializeWindow:
             sub         rsp, K_StackSize
+            mov         [yword0 + 0], rsi
+            mov         [yword0 + 8], rdi
             ; create window class
             lea         rax, [F_ProcessWindowMessage]
             lea         rcx, [G_ApplicationName]
@@ -77,7 +79,7 @@ F_InitializeWindow:
             lea         rcx, [G_WindowClass]
             icall       RegisterClass
             test        eax, eax
-            jz          .Error
+            jz          .Return
             ; compute window size
             mov         eax, K_WindowPixelsPerSide
             mov         [G_Rect.right], eax
@@ -88,15 +90,70 @@ F_InitializeWindow:
             icall       AdjustWindowRect
             mov         r10d, [G_Rect.right]
             mov         r11d, [G_Rect.bottom]
-            sub         r10d, [G_Rect.left]
-            sub         r11d, [G_Rect.top]
+            sub         r10d, [G_Rect.left]                 ; r10d = window width
+            sub         r11d, [G_Rect.top]                  ; r11d = window height
+            xor         esi, esi                            ; rsi = 0
             ; create window
+            xor         ecx, ecx
+            lea         rdx, [G_ApplicationName]
+            mov         r8, rdx
+            mov         r9d, WS_VISIBLE+K_WindowStyle
+            mov         [yword1 + 0], dword CW_USEDEFAULT
+            mov         [yword1 + 8], dword CW_USEDEFAULT
+            mov         [yword1 + 16], r10
+            mov         [yword1 + 24], r11
+            mov         [yword2 + 0], rsi
+            mov         [yword2 + 8], rsi
+            mov         rax, [G_WindowClass.hInstance]
+            mov         [yword2 + 16], rax
+            mov         [yword2 + 24], rsi
+            icall       CreateWindowEx
+            test        rax, rax
+            jz          .Return
+            ; create bitmap
+            mov         rcx, rax                            ; window handle
+            icall       GetDC
+            test        rax, rax
+            jz          .Return
+            mov         rdi, rax                            ; rdi = window hdc
+            mov         rcx, rdi
+            lea         rdx, [G_BitmapInfoHeader]
+            xor         r8d, r8d
+            lea         r9, [G_WindowPixels]
+            mov         [yword1 + 0], r8                    ; 0
+            mov         [yword1 + 8], r8                    ; 0
+            icall       CreateDIBSection
+            test        rax, rax
+            jz          .Return
+            mov         rsi, rax                            ; rsi = bitmap handle
+            mov         rcx, rdi                            ; rcx = window hdc
+            icall       CreateCompatibleDC
+            test        rax, rax
+            jz          .Return
+            mov         rcx, rax                            ; bitmap hdc
+            mov         rdx, rsi                            ; bitmap handle
+            icall       SelectObject
+            test        eax, eax
+            jz          .Return
             mov         eax, 1
+.Return:    mov         rsi, [yword0 + 0]
+            mov         rdi, [yword0 + 8]
             add         rsp, K_StackSize
             ret
-.Error:     xor         eax, eax
+
+falign
+F_Update:
+            sub         rsp, K_StackSize
+            vmovaps     [yword0], ymm0
             add         rsp, K_StackSize
-            ret                        
+            ret
+
+falign
+F_Shutdown:
+            sub         rsp, K_StackSize
+            vmovaps     [yword0], ymm0
+            add         rsp, K_StackSize
+            ret
 
 falign
 F_Initialize:
@@ -107,7 +164,7 @@ F_Initialize:
             ret
 
 falign
-F_Start:    sub         rsp, 32+24              ; shadow space + alignment to 32 bytes
+F_Start:    sub         rsp, K_StackSize
             vmovaps     [yword0], ymm0
             lea         rcx, [G_Kernel32Str]
             icall       LoadLibrary
@@ -131,12 +188,41 @@ F_Start:    sub         rsp, 32+24              ; shadow space + alignment to 32
             inline      M_GetProcAddress, User32, SetWindowText
             inline      M_GetProcAddress, User32, AdjustWindowRect
             inline      M_GetProcAddress, User32, PostQuitMessage
+            inline      M_GetProcAddress, User32, GetDC
+            inline      M_GetProcAddress, Gdi32, CreateCompatibleDC
+            inline      M_GetProcAddress, Gdi32, CreateDIBSection
+            inline      M_GetProcAddress, Gdi32, SelectObject
+            inline      M_GetProcAddress, Gdi32, BitBlt
             call        F_Initialize
-            mov         ecx, eax
+            test        eax, eax
+            jz          .Exit
+            xor         esi, esi
+.MainLoop:  lea         rcx, [G_Message]
+            xor         edx, edx
+            xor         r8d, r8d
+            xor         r9d, r9d
+            mov         qword[yword2], 1
+            icall       PeekMessage
+            test        eax, eax
+            jz          .Update
+            inc         esi
+            cmp         esi, 1000000
+            je          .Update
+            ;lea         rcx, [G_Message]
+            ;icall       DispatchMessage
+            ;cmp         [G_Message.message], WM_QUIT
+            ;je          .Exit
+            jmp         .MainLoop
+.Update:    ;call        F_Update
+            ;jmp         .MainLoop
+.Exit:      ;call        F_Shutdown
+            ;xor         ecx, ecx
             icall       ExitProcess
             ret
 
 section '.data' data readable writeable
+
+G_WindowPixels dq 0
 
 align 8
 G_Message:
@@ -146,7 +232,8 @@ G_Message:
   .lParam dq 0
   .time dd 0
   .pt.x dd 0
-  .pt.y dd 0, 0
+  .pt.y dd 0
+  .lPrivate dd 0
 
 align 8
 G_WindowClass:
@@ -163,13 +250,13 @@ G_WindowClass:
 
 align 8
 G_BitmapInfoHeader:
-  .biSize dd 0
-  .biWidth dd 0
-  .biHeight dd 0
-  .biPlanes dw 0
-  .biBitCount dw 0
+  .biSize dd 40
+  .biWidth dd K_WindowPixelsPerSide
+  .biHeight dd K_WindowPixelsPerSide
+  .biPlanes dw 1
+  .biBitCount dw 32
   .biCompression dd 0
-  .biSizeImage dd 0
+  .biSizeImage dd K_WindowPixelsPerSide * K_WindowPixelsPerSide
   .biXPelsPerMeter dd 0
   .biYPelsPerMeter dd 0
   .biClrUsed dd 0
@@ -201,6 +288,12 @@ LoadCursor dq 0
 SetWindowText dq 0
 AdjustWindowRect dq 0
 PostQuitMessage dq 0
+GetDC dq 0
+
+CreateDIBSection dq 0
+CreateCompatibleDC dq 0
+SelectObject dq 0
+BitBlt dq 0
 
 G_ApplicationName db 'AsmBase', 0
 
@@ -220,8 +313,13 @@ G_LoadCursor db 'LoadCursorA', 0
 G_SetWindowText db 'SetWindowTextA', 0
 G_AdjustWindowRect db 'AdjustWindowRect', 0
 G_PostQuitMessage db 'PostQuitMessage', 0
+G_GetDC db 'GetDC', 0
 
 G_Gdi32Str db 'gdi32.dll', 0
+G_CreateDIBSection db 'CreateDIBSection', 0
+G_CreateCompatibleDC db 'CreateCompatibleDC', 0
+G_SelectObject db 'SelectObject', 0
+G_BitBlt db 'BitBlt', 0
 
 section '.idata' import data readable writeable
 
