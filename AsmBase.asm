@@ -142,15 +142,13 @@ F_InitializeWindow:
             ret
 
 falign
-F_Update:
-            sub         rsp, K_StackSize
+F_Update:   sub         rsp, K_StackSize
             vmovaps     [yword0], ymm0
             add         rsp, K_StackSize
             ret
 
 falign
-F_Shutdown:
-            sub         rsp, K_StackSize
+F_Shutdown: sub         rsp, K_StackSize
             vmovaps     [yword0], ymm0
             add         rsp, K_StackSize
             ret
@@ -196,7 +194,6 @@ F_Start:    sub         rsp, K_StackSize
             call        F_Initialize
             test        eax, eax
             jz          .Exit
-            xor         esi, esi
 .MainLoop:  lea         rcx, [G_Message]
             xor         edx, edx
             xor         r8d, r8d
@@ -205,18 +202,15 @@ F_Start:    sub         rsp, K_StackSize
             icall       PeekMessage
             test        eax, eax
             jz          .Update
-            inc         esi
-            cmp         esi, 1000000
-            je          .Update
-            ;lea         rcx, [G_Message]
-            ;icall       DispatchMessage
-            ;cmp         [G_Message.message], WM_QUIT
-            ;je          .Exit
+            lea         rcx, [G_Message]
+            icall       DispatchMessage
+            cmp         [G_Message.message], WM_QUIT
+            je          .Exit
             jmp         .MainLoop
-.Update:    ;call        F_Update
-            ;jmp         .MainLoop
-.Exit:      ;call        F_Shutdown
-            ;xor         ecx, ecx
+.Update:    call        F_Update
+            jmp         .MainLoop
+.Exit:      call        F_Shutdown
+            xor         ecx, ecx
             icall       ExitProcess
             ret
 
