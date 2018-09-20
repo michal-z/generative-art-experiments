@@ -23,7 +23,7 @@ K_WindowPixelsPerSide equ 1024
 
 K_StackSize equ 1024+24
 virtual at rsp
-  rept ((K_StackSize-24)/32) N:0 { yword#N: rb 32*N }
+  rept ((K_StackSize-24)/32) N:0 { yword#N: rb 32 }
 end virtual
 
 macro falign { align 16 }
@@ -201,7 +201,7 @@ F_Start:    sub         rsp, K_StackSize
             xor         edx, edx
             xor         r8d, r8d
             xor         r9d, r9d
-            mov         qword[yword2], 1
+            mov         [yword1], dword 1
             icall       PeekMessage
             test        eax, eax
             jz          .Update
