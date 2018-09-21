@@ -115,8 +115,8 @@ F_InitializeWindow:
             icall       GetDC
             test        rax, rax
             jz          .Return
-            mov         rdi, rax                            ; rdi = window hdc
-            mov         rcx, rdi
+            mov         [G_WindowHdc], rax
+            mov         rcx, rax
             lea         rdx, [G_BitmapInfoHeader]
             xor         r8d, r8d
             lea         r9, [G_WindowPixels]
@@ -126,10 +126,11 @@ F_InitializeWindow:
             test        rax, rax
             jz          .Return
             mov         rsi, rax                            ; rsi = bitmap handle
-            mov         rcx, rdi                            ; rcx = window hdc
+            mov         rcx, [G_WindowHdc]                  ; rcx = window hdc
             icall       CreateCompatibleDC
             test        rax, rax
             jz          .Return
+            mov         [G_BitmapHdc], rax
             mov         rcx, rax                            ; bitmap hdc
             mov         rdx, rsi                            ; bitmap handle
             icall       SelectObject
@@ -198,7 +199,7 @@ F_Start:    sub         rsp, K_StackSize
             xor         edx, edx
             xor         r8d, r8d
             xor         r9d, r9d
-            mov         [yword1], dword 1
+            mov         [yword1], dword PM_REMOVE
             icall       PeekMessage
             test        eax, eax
             jz          .Update
@@ -208,6 +209,18 @@ F_Start:    sub         rsp, K_StackSize
             je          .Exit
             jmp         .MainLoop
 .Update:    call        F_Update
+            ; transfer image pixels to the window
+            mov         rcx, [G_WindowHdc]
+            xor         edx, edx
+            xor         r8d, r8d
+            mov         r9d, K_WindowPixelsPerSide
+            mov         [yword1 + 0], r9d
+            mov         rax, [G_BitmapHdc]
+            mov         [yword1 + 8], rax
+            mov         [yword1 + 16], rdx
+            mov         [yword1 + 24], rdx
+            mov         [yword2 + 0], dword SRCCOPY
+            icall       BitBlt
             jmp         .MainLoop
 .Exit:      call        F_Shutdown
             xor         ecx, ecx
@@ -217,6 +230,8 @@ F_Start:    sub         rsp, K_StackSize
 section '.data' data readable writeable
 
 G_WindowPixels dq 0
+G_WindowHdc dq 0
+G_BitmapHdc dq 0
 
 align 8
 G_Message:
