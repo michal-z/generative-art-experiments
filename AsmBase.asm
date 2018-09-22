@@ -211,11 +211,6 @@ F_Update:   sub         rsp, K_StackSize
             ret
 
 falign
-F_Shutdown: sub         rsp, K_StackSize
-            add         rsp, K_StackSize
-            ret
-
-falign
 F_Initialize:
             sub         rsp, K_StackSize
             call        F_InitializeWindow
@@ -284,8 +279,7 @@ F_Start:    sub         rsp, K_StackSize
             mov         [yword2+0], dword SRCCOPY
             icall       BitBlt
             jmp         .MainLoop
-.Exit:      call        F_Shutdown
-            xor         ecx, ecx
+.Exit:      xor         ecx, ecx
             icall       ExitProcess
             ret
 
