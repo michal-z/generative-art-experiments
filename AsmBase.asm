@@ -103,7 +103,7 @@ F_UpdateFrameStats:
 
 falign
 F_ProcessWindowMessage:
-            sub         rsp, K_StackSize
+            sub         rsp, 40
             cmp         edx, WM_KEYDOWN
             je          .KeyDown
             cmp         edx, WM_DESTROY
@@ -119,7 +119,7 @@ F_ProcessWindowMessage:
 .Destroy:   xor         ecx, ecx
             icall       PostQuitMessage
             xor         eax, eax
-.Return:    add         rsp, K_StackSize
+.Return:    add         rsp, 40
             ret
 
 falign
