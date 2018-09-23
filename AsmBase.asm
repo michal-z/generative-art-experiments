@@ -88,18 +88,44 @@ F_UpdateFrameStats:
             vdivsd      xmm1, xmm2, xmm1
             vmulsd      xmm1, xmm1, [K_1000000_0]
             mov         [.FrameCount], 0
-            lea         rcx, [yword1]
+            lea         rcx, [yword2+0]
             lea         rdx, [.HeaderFormat]
             vcvtsd2si   r8, xmm0
             vcvtsd2si   r9, xmm1
+            lea         rax, [G_ApplicationName]
+            mov         [yword1+0], rax
             icall       wsprintf
             mov         rcx, [G_WindowHandle]
-            lea         rdx, [yword1]
+            lea         rdx, [yword2+0]
             icall       SetWindowText
 .AfterHeaderUpdate:
             inc         [.FrameCount]
             add         rsp, K_StackSize
             ret
+
+falign
+F_CheckAvx2Support:
+            mov         eax, 1
+            cpuid
+            and         ecx, 0x58001000          ; check RDRAND, AVX, OSXSAVE, FMA
+            cmp         ecx, 0x58001000
+            jne         .NotSupported
+            mov         eax, 0x7
+            xor         ecx, ecx
+            cpuid
+            and         ebx, 0x20                ; check AVX2
+            cmp         ebx, 0x20
+            jne         .NotSupported
+            xor         ecx, ecx
+            xgetbv
+            and         eax, 0x6                 ; check OS support
+            cmp         eax, 0x6
+            jne         .NotSupported
+            mov         eax, 1
+            jmp         .Return
+.NotSupported:
+            xor         eax, eax
+.Return:    ret
 
 falign
 F_ProcessWindowMessage:
@@ -152,8 +178,8 @@ F_InitializeWindow:
             icall       AdjustWindowRect
             mov         r10d, [.Rect.right]
             mov         r11d, [.Rect.bottom]
-            sub         r10d, [.Rect.left]                 ; r10d = window width
-            sub         r11d, [.Rect.top]                  ; r11d = window height
+            sub         r10d, [.Rect.left]                  ; r10d = window width
+            sub         r11d, [.Rect.top]                   ; r11d = window height
             xor         esi, esi                            ; rsi = 0
             ; create window
             xor         ecx, ecx
@@ -183,8 +209,8 @@ F_InitializeWindow:
             lea         rdx, [.BitmapInfoHeader]
             xor         r8d, r8d
             lea         r9, [G_WindowPixels]
-            mov         [yword1+0], r8                    ; 0
-            mov         [yword1+8], r8                    ; 0
+            mov         [yword1+0], r8                      ; 0
+            mov         [yword1+8], r8                      ; 0
             icall       CreateDIBSection
             test        rax, rax
             jz          .Return
@@ -199,6 +225,7 @@ F_InitializeWindow:
             icall       SelectObject
             test        eax, eax
             jz          .Return
+            ; success
             mov         eax, 1
 .Return:    mov         rsi, [yword0+0]
             add         rsp, K_StackSize
@@ -243,15 +270,26 @@ F_Start:    sub         rsp, K_StackSize
             inline      M_GetProcAddress, [yword3+8], PostQuitMessage
             inline      M_GetProcAddress, [yword3+8], GetDC
             inline      M_GetProcAddress, [yword3+8], wsprintf
+            inline      M_GetProcAddress, [yword3+8], MessageBox
             inline      M_GetProcAddress, [yword3+8], SetProcessDPIAware
             inline      M_GetProcAddress, [yword3+16], CreateCompatibleDC
             inline      M_GetProcAddress, [yword3+16], CreateDIBSection
             inline      M_GetProcAddress, [yword3+16], SelectObject
             inline      M_GetProcAddress, [yword3+16], BitBlt
             icall       SetProcessDPIAware
-            call        F_Initialize
+            call        F_CheckAvx2Support
+            test        eax, eax
+            jnz         .CpuOk
+            xor         ecx, ecx                ; hwnd
+            lea         rdx, [.NoAvx2]
+            lea         r8, [.NoAvx2Caption]
+            mov         r9d, 0x10               ; MB_ICONERROR
+            icall       MessageBox
+            jmp         .Exit
+.CpuOk:     call        F_Initialize
             test        eax, eax
             jz          .Exit
+            ; PeekMessage, if queue empty jump to F_Update
 .MainLoop:  lea         rcx, [.Message]
             xor         edx, edx
             xor         r8d, r8d
@@ -260,11 +298,12 @@ F_Start:    sub         rsp, K_StackSize
             icall       PeekMessage
             test        eax, eax
             jz          .Update
+            ; DispatchMessage, if WM_QUIT received exit application
             lea         rcx, [.Message]
             icall       DispatchMessage
             cmp         [.Message.message], WM_QUIT
             je          .Exit
-            jmp         .MainLoop
+            jmp         .MainLoop               ; peek next message
 .Update:    call        F_Update
             ; transfer image pixels to the window
             mov         rcx, [G_WindowHdc]
@@ -278,6 +317,7 @@ F_Start:    sub         rsp, K_StackSize
             mov         [yword1+24], rdx
             mov         [yword2+0], dword SRCCOPY
             icall       BitBlt
+            ; repeat
             jmp         .MainLoop
 .Exit:      xor         ecx, ecx
             icall       ExitProcess
@@ -300,7 +340,9 @@ F_GetTime.Frequency dq 0
 F_UpdateFrameStats.PreviousTime dq 0
 F_UpdateFrameStats.HeaderUpdateTime dq 0
 F_UpdateFrameStats.FrameCount dd 0, 0
-F_UpdateFrameStats.HeaderFormat db '[%d fps  %d us] Asm Base Code', 0
+F_UpdateFrameStats.HeaderFormat db '[%d fps  %d us] %s', 0
+F_Start.NoAvx2 db 'Program requires CPU with AVX2 support.', 0
+F_Start.NoAvx2Caption db 'Unsupported CPU', 0
 
 align 8
 K_1_0 dq 1.0
@@ -368,6 +410,7 @@ PostQuitMessage dq 0
 GetDC dq 0
 wsprintf dq 0
 SetProcessDPIAware dq 0
+MessageBox dq 0
 
 CreateDIBSection dq 0
 CreateCompatibleDC dq 0
@@ -393,6 +436,7 @@ F_Start.PostQuitMessage db 'PostQuitMessage', 0
 F_Start.GetDC db 'GetDC', 0
 F_Start.wsprintf db 'wsprintfA', 0
 F_Start.SetProcessDPIAware db 'SetProcessDPIAware', 0
+F_Start.MessageBox db 'MessageBoxA', 0
 
 F_Start.Gdi32 db 'gdi32.dll', 0
 F_Start.CreateDIBSection db 'CreateDIBSection', 0
