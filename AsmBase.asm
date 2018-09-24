@@ -21,9 +21,8 @@ SRCCOPY = 0x00CC0020
 K_WindowStyle equ WS_OVERLAPPED+WS_SYSMENU+WS_CAPTION+WS_MINIMIZEBOX
 K_WindowPixelsPerSide equ 1024
 
-K_StackSize equ 1024+24
 virtual at rsp
-  rept ((K_StackSize-24)/32) N:0 { yword#N: rb 32 }
+  rept (1024/32) N:0 { yword#N: rb 32 }
 end virtual
 
 macro falign { align 16 }
@@ -39,7 +38,9 @@ macro M_GetProcAddress Lib*, Proc* {
 section '.text' code readable executable
 
 falign
-F_GetTime:  sub         rsp, K_StackSize
+F_GetTime:
+.StackSize = 2*32+24
+            sub         rsp, .StackSize
             mov         rax, [.Frequency]
             test        rax, rax
             jnz         .AfterInit
@@ -56,12 +57,13 @@ F_GetTime:  sub         rsp, K_StackSize
             vcvtsi2sd   xmm1, xmm0, rcx
             vcvtsi2sd   xmm2, xmm0, rdx
             vdivsd      xmm0, xmm1, xmm2
-            add         rsp, K_StackSize
+            add         rsp, .StackSize
             ret
 
 falign
 F_UpdateFrameStats:
-            sub         rsp, K_StackSize
+.StackSize = 4*32+24
+            sub         rsp, .StackSize
             mov         rax, [.PreviousTime]
             test        rax, rax
             jnz         .AfterInit
@@ -100,7 +102,7 @@ F_UpdateFrameStats:
             icall       SetWindowText
 .AfterHeaderUpdate:
             inc         [.FrameCount]
-            add         rsp, K_StackSize
+            add         rsp, .StackSize
             ret
 
 falign
@@ -129,7 +131,8 @@ F_CheckAvx2Support:
 
 falign
 F_ProcessWindowMessage:
-            sub         rsp, 40
+.StackSize = 1*32+8
+            sub         rsp, .StackSize
             cmp         edx, WM_KEYDOWN
             je          .KeyDown
             cmp         edx, WM_DESTROY
@@ -145,12 +148,13 @@ F_ProcessWindowMessage:
 .Destroy:   xor         ecx, ecx
             icall       PostQuitMessage
             xor         eax, eax
-.Return:    add         rsp, 40
+.Return:    add         rsp, .StackSize
             ret
 
 falign
 F_InitializeWindow:
-            sub         rsp, K_StackSize
+.StackSize = 3*32+24
+            sub         rsp, .StackSize
             mov         [yword0+0], rsi
             ; create window class
             lea         rax, [F_ProcessWindowMessage]
@@ -228,24 +232,29 @@ F_InitializeWindow:
             ; success
             mov         eax, 1
 .Return:    mov         rsi, [yword0+0]
-            add         rsp, K_StackSize
+            add         rsp, .StackSize
             ret
 
 falign
-F_Update:   sub         rsp, K_StackSize
+F_Update:
+.StackSize = 2*32+24
+            sub         rsp, .StackSize
             call        F_UpdateFrameStats
-            add         rsp, K_StackSize
+            add         rsp, .StackSize
             ret
 
 falign
 F_Initialize:
-            sub         rsp, K_StackSize
+.StackSize = 2*32+24
+            sub         rsp, .StackSize
             call        F_InitializeWindow
-            add         rsp, K_StackSize
+            add         rsp, .StackSize
             ret
 
 falign
-F_Start:    sub         rsp, K_StackSize
+F_Start:
+.StackSize = 4*32+24
+            sub         rsp, .StackSize
             lea         rcx, [.Kernel32]
             icall       LoadLibrary
             mov         [yword3+0], rax                     ; [yword3+0] = kernel32.dll
