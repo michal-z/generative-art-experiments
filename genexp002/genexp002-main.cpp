@@ -1,10 +1,11 @@
 ﻿#include "genexp002-external.h"
-#include "genexp002.h"
+#include "genexp002-directx12.h"
 #include "genexp002-common.cpp"
 #include "genexp002-directx12.cpp"
 #include "genexp002.cpp"
 #include "genexp002-imgui.cpp"
 
+#define prv GenExp002Main
 
 void *operator new[](size_t Size, const char* /*Name*/, int /*Flags*/,
                      unsigned /*DebugFlags*/, const char* /*File*/, int /*Line*/)
@@ -17,6 +18,9 @@ void *operator new[](size_t Size, size_t Alignment, size_t AlignmentOffset, cons
 {
     return _aligned_offset_malloc(Size, Alignment, AlignmentOffset);
 }
+
+namespace prv
+{
 
 static void
 FUpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDeltaTime)
@@ -170,17 +174,20 @@ FEndFrame(TDirectX12& Dx)
     Dx.CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx.CmdList);
 }
 
+} // namespace prv
+
+#define KExperimentName "genexp002"
+#define KExperimentResolutionX 1024
+#define KExperimentResolutionY 1024
+
 int CALLBACK
 WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
     SetProcessDPIAware();
     ImGui::CreateContext();
 
-#define KExperimentName "genexp002"
-#define KExperimentResolutionX 1024
-#define KExperimentResolutionY 1024
     TDirectX12 Dx = {};
-    Dx.Window = FInitializeWindow(KExperimentName, KExperimentResolutionX, KExperimentResolutionY);
+    Dx.Window = prv::FInitializeWindow(KExperimentName, KExperimentResolutionX, KExperimentResolutionY);
     FInitializeDirectX12(Dx);
 
     ImGuiIO& Io = ImGui::GetIO();
@@ -208,11 +215,8 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     Io.DisplaySize = ImVec2((float)Dx.Resolution[0], (float)Dx.Resolution[1]);
     ImGui::GetStyle().WindowRounding = 0.0f;
 
-    TGuiRenderer Gui = {};
-    FInitializeGui(Gui, Dx);
-
-    TGenExp002 E002 = {};
-    FInitialize(E002, Dx);
+    FInitializeGui(Dx);
+    FInitialize(Dx);
 
     // Upload resources to the GPU.
     VHR(Dx.CmdList->Close());
@@ -238,7 +242,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         {
             double Time;
             float DeltaTime;
-            FUpdateFrameStats(Dx.Window, KExperimentName, Time, DeltaTime);
+            prv::FUpdateFrameStats(Dx.Window, KExperimentName, Time, DeltaTime);
 
             ImGuiIO& Io = ImGui::GetIO();
             Io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -246,20 +250,22 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
             Io.KeyAlt = (GetKeyState(VK_MENU) & 0x8000) != 0;
             Io.DeltaTime = DeltaTime;
 
-            FBeginFrame(Dx);
+            prv::FBeginFrame(Dx);
             ImGui::NewFrame();
-            FUpdate(E002, Dx, Time, DeltaTime);
+            FUpdate(Dx, Time, DeltaTime);
             ImGui::Render();
-            FRenderGui(Gui, Dx);
-            FEndFrame(Dx);
+            FRenderGui(Dx);
+            prv::FEndFrame(Dx);
             FPresentFrame(Dx);
         }
     }
 
     FWaitForGpu(Dx);
-    FShutdown(E002);
-    FShutdownGui(Gui);
+    FShutdown();
+    FShutdownGui();
     FShutdownDirectX12(Dx);
     return 0;
 }
+
+#undef prv
 // vim: set ts=4 sw=4 expandtab:

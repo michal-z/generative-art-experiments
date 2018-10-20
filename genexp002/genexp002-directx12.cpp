@@ -1,3 +1,8 @@
+#define prv GenExp002DirectX12
+
+namespace prv
+{
+
 static TDescriptorHeap&
 FGetDescriptorHeap(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRIPTOR_HEAP_FLAGS Flags,
                    unsigned& OutDescriptorSize)
@@ -25,11 +30,13 @@ FGetDescriptorHeap(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRI
     return Dx.NonShaderVisibleHeap;
 }
 
+} // namespace prv
+
 static void
 FAllocateDescriptors(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE& OutFirst)
 {
     unsigned DescriptorSize;
-    TDescriptorHeap& DescriptorHeap = FGetDescriptorHeap(Dx, Type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, DescriptorSize);
+    TDescriptorHeap& DescriptorHeap = prv::FGetDescriptorHeap(Dx, Type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, DescriptorSize);
 
     assert((DescriptorHeap.Size + Count) < DescriptorHeap.Capacity);
 
@@ -44,8 +51,8 @@ FAllocateGpuDescriptors(TDirectX12& Dx, unsigned Count,
                         D3D12_GPU_DESCRIPTOR_HANDLE& OutFirstGpu)
 {
     unsigned DescriptorSize;
-    TDescriptorHeap& DescriptorHeap = FGetDescriptorHeap(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                                                         D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, DescriptorSize);
+    TDescriptorHeap& DescriptorHeap = prv::FGetDescriptorHeap(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                                              D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, DescriptorSize);
 
     assert((DescriptorHeap.Size + Count) < DescriptorHeap.Capacity);
 
@@ -325,4 +332,6 @@ FWaitForGpu(TDirectX12& Dx)
     Dx.FrameFence->SetEventOnCompletion(Dx.FrameCount, Dx.FrameFenceEvent);
     WaitForSingleObject(Dx.FrameFenceEvent, INFINITE);
 }
+
+#undef prv
 // vim: set ts=4 sw=4 expandtab:

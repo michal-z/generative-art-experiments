@@ -28,14 +28,14 @@ struct TConstantData
 {
     float4x4 Matrix;
 };
-ConstantBuffer<TConstantData> GCb : register(b0);
+ConstantBuffer<TConstantData> GCbv : register(b0);
 
 [RootSignature(KRsi)]
 TPixelData
 FVertexShader(TVertexData Input)
 {
     TPixelData Output;
-    Output.Position = mul(float4(Input.Position, 0.0f, 1.0f), GCb.Matrix);
+    Output.Position = mul(float4(Input.Position, 0.0f, 1.0f), GCbv.Matrix);
     Output.Texcoord = Input.Texcoord;
     Output.Color = Input.Color;
     return Output;
@@ -43,14 +43,14 @@ FVertexShader(TVertexData Input)
 
 #elif defined(PS_IMGUI)
 
-Texture2D GGuiTexture : register(t0);
-SamplerState GGuiSampler : register(s0);
+Texture2D GGuiSrv : register(t0);
+SamplerState GGuiSam : register(s0);
 
 [RootSignature(KRsi)]
 float4
 FPixelShader(TPixelData Input) : SV_Target0
 {
-    return Input.Color * GGuiTexture.Sample(GGuiSampler, Input.Texcoord);
+    return Input.Color * GGuiSrv.Sample(GGuiSam, Input.Texcoord);
 }
 
 #endif
@@ -84,19 +84,19 @@ FVertexShader(uint VertexId : SV_VertexID)
 
 #elif defined(PS_DISPLAY_CANVAS)
 
-Texture2D GCanvasTexture : register(t0);
-SamplerState GCanvasSampler : register(s0);
+Texture2D GCanvasSrv : register(t0);
+SamplerState GCanvasSam : register(s0);
 
 [RootSignature(KRsi)]
 float4
 FPixelShader(TPixelData Input) : SV_Target0
 {
-    return GCanvasTexture.Sample(GCanvasSampler, Input.Texcoord);
+    return GCanvasSrv.Sample(GCanvasSam, Input.Texcoord);
 }
 
 #endif
 //=============================================================================
-#elif defined(VS_LINE) || defined(PS_LINE)
+#elif defined(VS_FLAMES) || defined(PS_FLAMES)
 //=============================================================================
 
 #define KRsi \
@@ -112,7 +112,7 @@ struct TPixelData
     float4 Position : SV_Position;
 };
 
-#if defined(VS_LINE)
+#if defined(VS_FLAMES)
 
 [RootSignature(KRsi)]
 TPixelData
@@ -123,13 +123,13 @@ FVertexShader(TVertexData Input)
     return Output;
 }
 
-#elif defined(PS_LINE)
+#elif defined(PS_FLAMES)
 
 [RootSignature(KRsi)]
 float4
 FPixelShader(TPixelData Input) : SV_Target0
 {
-    return float4(0.0f, 0.0f, 0.0f, 0.01f);
+    return float4(1.01f, 1.0f, 1.0f, 1.0f);
 }
 
 #endif

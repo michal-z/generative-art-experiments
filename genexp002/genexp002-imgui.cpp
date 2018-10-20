@@ -1,5 +1,31 @@
+#define prv GenExp002Imgui
+
+namespace prv
+{
+
+struct TFrameResources
+{
+    ID3D12Resource* VertexBuffer;
+    void* VertexBufferCpuAddress;
+    unsigned VertexBufferSize;
+    D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
+
+    ID3D12Resource* IndexBuffer;
+    void* IndexBufferCpuAddress;
+    unsigned IndexBufferSize;
+    D3D12_INDEX_BUFFER_VIEW IndexBufferView;
+};
+
+TFrameResources GFrameResources[2];
+ID3D12RootSignature* GRootSignature;
+ID3D12PipelineState* GPipelineState;
+ID3D12Resource* GFontTexture;
+D3D12_CPU_DESCRIPTOR_HANDLE GFontTextureDescriptor;
+
+} // namespace prv
+
 static void
-FInitializeGui(TGuiRenderer& Gui, TDirectX12& Dx)
+FInitializeGui(TDirectX12& Dx)
 {
     uint8_t* Pixels;
     int Width, Height;
@@ -9,7 +35,7 @@ FInitializeGui(TGuiRenderer& Gui, TDirectX12& Dx)
     const auto TextureDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, (UINT64)Width, Height);
     VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
                                            &TextureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                           IID_PPV_ARGS(&Gui.FontTexture)));
+                                           IID_PPV_ARGS(&prv::GFontTexture)));
 
     ID3D12Resource* IntermediateBuffer = nullptr;
     {
@@ -25,9 +51,9 @@ FInitializeGui(TGuiRenderer& Gui, TDirectX12& Dx)
     }
 
     D3D12_SUBRESOURCE_DATA TextureData = { Pixels, (LONG_PTR)(Width * 4) };
-    UpdateSubresources<1>(Dx.CmdList, Gui.FontTexture, IntermediateBuffer, 0, 0, 1, &TextureData);
+    UpdateSubresources<1>(Dx.CmdList, prv::GFontTexture, IntermediateBuffer, 0, 0, 1, &TextureData);
 
-    Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Gui.FontTexture,
+    Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(prv::GFontTexture,
                                                                          D3D12_RESOURCE_STATE_COPY_DEST,
                                                                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
     D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
@@ -36,8 +62,8 @@ FInitializeGui(TGuiRenderer& Gui, TDirectX12& Dx)
     SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     SrvDesc.Texture2D.MipLevels = 1;
 
-    FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, Gui.FontTextureDescriptor);
-    Dx.Device->CreateShaderResourceView(Gui.FontTexture, &SrvDesc, Gui.FontTextureDescriptor);
+    FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, prv::GFontTextureDescriptor);
+    Dx.Device->CreateShaderResourceView(prv::GFontTexture, &SrvDesc, prv::GFontTextureDescriptor);
 
 
     D3D12_INPUT_ELEMENT_DESC InputElements[] =
@@ -70,19 +96,19 @@ FInitializeGui(TGuiRenderer& Gui, TDirectX12& Dx)
     PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     PsoDesc.SampleDesc.Count = 1;
 
-    VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&Gui.PipelineState)));
-    VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&Gui.RootSignature)));
+    VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&prv::GPipelineState)));
+    VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&prv::GRootSignature)));
 }
 
 static void
-FRenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
+FRenderGui(TDirectX12& Dx)
 {
     ImDrawData* DrawData = ImGui::GetDrawData();
     if (!DrawData || DrawData->TotalVtxCount == 0)
         return;
 
     ImGuiIO& Io = ImGui::GetIO();
-    TGuiFrameResources& Frame = Gui.FrameResources[Dx.FrameIndex];
+    prv::TFrameResources& Frame = prv::GFrameResources[Dx.FrameIndex];
 
     const int ViewportWidth = (int)(Io.DisplaySize.x * Io.DisplayFramebufferScale.x);
     const int ViewportHeight = (int)(Io.DisplaySize.y * Io.DisplayFramebufferScale.y);
@@ -105,6 +131,7 @@ FRenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
         Frame.VertexBufferView.StrideInBytes = sizeof(ImDrawVert);
         Frame.VertexBufferView.SizeInBytes = DrawData->TotalVtxCount * sizeof(ImDrawVert);
     }
+
     // create/resize index buffer
     if (Frame.IndexBufferSize == 0 || Frame.IndexBufferSize < DrawData->TotalIdxCount * sizeof(ImDrawIdx))
     {
@@ -121,6 +148,7 @@ FRenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
         Frame.IndexBufferView.Format = sizeof(ImDrawIdx) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
         Frame.IndexBufferView.SizeInBytes = DrawData->TotalIdxCount * sizeof(ImDrawIdx);
     }
+
     // update vertex and index buffers
     {
         ImDrawVert* VertexPtr = (ImDrawVert*)Frame.VertexBufferCpuAddress;
@@ -153,11 +181,11 @@ FRenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
     Dx.CmdList->RSSetViewports(1, &Viewport);
 
     Dx.CmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Dx.CmdList->SetPipelineState(Gui.PipelineState);
+    Dx.CmdList->SetPipelineState(prv::GPipelineState);
 
-    Dx.CmdList->SetGraphicsRootSignature(Gui.RootSignature);
+    Dx.CmdList->SetGraphicsRootSignature(prv::GRootSignature);
     Dx.CmdList->SetGraphicsRootConstantBufferView(0, ConstantBufferGpuAddress);
-    Dx.CmdList->SetGraphicsRootDescriptorTable(1, FCopyDescriptorsToGpu(Dx, 1, Gui.FontTextureDescriptor));
+    Dx.CmdList->SetGraphicsRootDescriptorTable(1, FCopyDescriptorsToGpu(Dx, 1, prv::GFontTextureDescriptor));
 
     Dx.CmdList->IASetVertexBuffers(0, 1, &Frame.VertexBufferView);
     Dx.CmdList->IASetIndexBuffer(&Frame.IndexBufferView);
@@ -190,8 +218,10 @@ FRenderGui(TGuiRenderer& Gui, TDirectX12& Dx)
 }
 
 static void
-FShutdownGui(TGuiRenderer& Gui)
+FShutdownGui()
 {
     // @Incomplete: Release all resources.
 }
+
+#undef prv
 // vim: set ts=4 sw=4 expandtab:
