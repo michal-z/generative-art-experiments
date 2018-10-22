@@ -17,7 +17,7 @@ FLoadFile(const char* FileName)
 }
 
 static double
-FGetAbsoluteTime()
+FGetTime()
 {
     static LARGE_INTEGER StartCounter;
     static LARGE_INTEGER Frequency;

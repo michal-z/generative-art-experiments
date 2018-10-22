@@ -30,11 +30,11 @@ FUpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDelt
 
     if (PreviousTime < 0.0)
     {
-        PreviousTime = Misc::FGetAbsoluteTime();
+        PreviousTime = Misc::FGetTime();
         HeaderRefreshTime = PreviousTime;
     }
 
-    OutTime = Misc::FGetAbsoluteTime();
+    OutTime = Misc::FGetTime();
     OutDeltaTime = (float)(OutTime - PreviousTime);
     PreviousTime = OutTime;
 

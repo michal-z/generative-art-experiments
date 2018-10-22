@@ -47,7 +47,7 @@ namespace Misc
 {
 
 static eastl::vector<uint8_t> FLoadFile(const char* FileName);
-static double FGetAbsoluteTime();
+static double FGetTime();
 static inline float FRandomf();
 static inline float FRandomf(float begin, float end);
 

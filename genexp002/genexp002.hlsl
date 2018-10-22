@@ -96,7 +96,7 @@ FPixelShader(TPixelData Input) : SV_Target0
 
 #endif
 //=============================================================================
-#elif defined(VS_FLAMES) || defined(PS_FLAMES)
+#elif defined(VS_SAND) || defined(PS_SAND)
 //=============================================================================
 
 #define KRsi \
@@ -112,7 +112,7 @@ struct TPixelData
     float4 Position : SV_Position;
 };
 
-#if defined(VS_FLAMES)
+#if defined(VS_SAND)
 
 [RootSignature(KRsi)]
 TPixelData
@@ -123,13 +123,13 @@ FVertexShader(TVertexData Input)
     return Output;
 }
 
-#elif defined(PS_FLAMES)
+#elif defined(PS_SAND)
 
 [RootSignature(KRsi)]
 float4
 FPixelShader(TPixelData Input) : SV_Target0
 {
-    return float4(1.01f, 1.0f, 1.0f, 1.0f);
+    return float4(0.0f, 0.0f, 0.0f, 0.01f);
 }
 
 #endif

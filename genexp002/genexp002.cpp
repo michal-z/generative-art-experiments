@@ -17,8 +17,8 @@ static D3D12_CPU_DESCRIPTOR_HANDLE GCanvasSrv;
 static ID3D12PipelineState* GCanvasDisplayPso;
 static ID3D12RootSignature* GCanvasDisplayRsi;
 
-static ID3D12PipelineState* GFlamesPso;
-static ID3D12RootSignature* GFlamesRsi;
+static ID3D12PipelineState* GSandPso;
+static ID3D12RootSignature* GSandRsi;
 
 static TFrameResources GFrames[2];
 
@@ -36,8 +36,8 @@ FUpdate(double Time, float DeltaTime)
 
     Dx::GCmdList->OMSetRenderTargets(1, &GCanvasRtv, 0, nullptr);
     Dx::GCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-    Dx::GCmdList->SetPipelineState(GFlamesPso);
-    Dx::GCmdList->SetGraphicsRootSignature(GFlamesRsi);
+    Dx::GCmdList->SetPipelineState(GSandPso);
+    Dx::GCmdList->SetGraphicsRootSignature(GSandRsi);
     Dx::GCmdList->IASetVertexBuffers(0, 1, &Frame.PointsVbv);
     Dx::GCmdList->DrawInstanced(2, 1, 0, 0);
 
@@ -123,8 +123,8 @@ FInitResources()
 
     // Line shaders
     {
-        eastl::vector<uint8_t> CsoVs = Misc::FLoadFile("data/shaders/flames-vs.cso");
-        eastl::vector<uint8_t> CsoPs = Misc::FLoadFile("data/shaders/flames-ps.cso");
+        eastl::vector<uint8_t> CsoVs = Misc::FLoadFile("data/shaders/sand-vs.cso");
+        eastl::vector<uint8_t> CsoPs = Misc::FLoadFile("data/shaders/sand-ps.cso");
 
         D3D12_INPUT_ELEMENT_DESC InputElements[] =
         {
@@ -146,8 +146,8 @@ FInitResources()
         PsoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
         PsoDesc.SampleDesc.Count = 1;
 
-        VHR(Dx::GDevice->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&GFlamesPso)));
-        VHR(Dx::GDevice->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&GFlamesRsi)));
+        VHR(Dx::GDevice->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&GSandPso)));
+        VHR(Dx::GDevice->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&GSandRsi)));
     }
 }
 

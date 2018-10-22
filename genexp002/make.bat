@@ -23,8 +23,8 @@ if exist %NAME%.exe del %NAME%.exe
 %FXC% /D PS_IMGUI /E FPixelShader /Fo data\shaders\imgui-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
 %FXC% /D VS_DISPLAY_CANVAS /E FVertexShader /Fo data\shaders\display-canvas-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
 %FXC% /D PS_DISPLAY_CANVAS /E FPixelShader /Fo data\shaders\display-canvas-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D VS_FLAMES /E FVertexShader /Fo data\shaders\flames-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
-%FXC% /D PS_FLAMES /E FPixelShader /Fo data\shaders\flames-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D VS_SAND /E FVertexShader /Fo data\shaders\sand-vs.cso /T vs_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
+%FXC% /D PS_SAND /E FPixelShader /Fo data\shaders\sand-ps.cso /T ps_5_1 %NAME%.hlsl & if ERRORLEVEL 1 (set ERROR=1 & goto :end)
 
 if not exist %NAME%-external.pch (cl %CFLAGS% /c /Yc%NAME%-external.h %NAME%-external.cpp)
 cl %CFLAGS% /Yu%NAME%-external.h %NAME%-main.cpp /link %LFLAGS% %NAME%-external.obj kernel32.lib user32.lib gdi32.lib /out:%NAME%.exe
