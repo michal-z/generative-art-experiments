@@ -1,11 +1,10 @@
 ﻿#include "genexp002-external.h"
-#include "genexp002-directx12.h"
-#include "genexp002-common.cpp"
+#include "genexp002.h"
+#include "genexp002-misc.cpp"
 #include "genexp002-directx12.cpp"
 #include "genexp002.cpp"
 #include "genexp002-imgui.cpp"
 
-#define prv GenExp002Main
 
 void *operator new[](size_t Size, const char* /*Name*/, int /*Flags*/,
                      unsigned /*DebugFlags*/, const char* /*File*/, int /*Line*/)
@@ -31,11 +30,11 @@ FUpdateFrameStats(HWND Window, const char* Name, double& OutTime, float& OutDelt
 
     if (PreviousTime < 0.0)
     {
-        PreviousTime = FGetAbsoluteTime();
+        PreviousTime = Misc::FGetAbsoluteTime();
         HeaderRefreshTime = PreviousTime;
     }
 
-    OutTime = FGetAbsoluteTime();
+    OutTime = Misc::FGetAbsoluteTime();
     OutDeltaTime = (float)(OutTime - PreviousTime);
     PreviousTime = OutTime;
 
@@ -145,33 +144,33 @@ FInitializeWindow(const char* Name, unsigned Width, unsigned Height)
 }
 
 static void
-FBeginFrame(TDirectX12& Dx)
+FBeginFrame()
 {
-    ID3D12CommandAllocator* CmdAlloc = Dx.CmdAlloc[Dx.FrameIndex];
-    ID3D12GraphicsCommandList* CmdList = Dx.CmdList;
+    ID3D12CommandAllocator* CmdAlloc = Dx::GCmdAlloc[Dx::GFrameIndex];
+    ID3D12GraphicsCommandList* CmdList = Dx::GCmdList;
 
     CmdAlloc->Reset();
     CmdList->Reset(CmdAlloc, nullptr);
 
-    FSetDescriptorHeap(Dx);
+    Dx::FSetDescriptorHeap();
 
-    CmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(0.0f, 0.0f, (float)Dx.Resolution[0], (float)Dx.Resolution[1]));
-    CmdList->RSSetScissorRects(1, &CD3DX12_RECT(0, 0, Dx.Resolution[0], Dx.Resolution[1]));
+    CmdList->RSSetViewports(1, &CD3DX12_VIEWPORT(0.0f, 0.0f, (float)Dx::GResolution[0], (float)Dx::GResolution[1]));
+    CmdList->RSSetScissorRects(1, &CD3DX12_RECT(0, 0, Dx::GResolution[0], Dx::GResolution[1]));
 
-    CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx.SwapBuffers[Dx.BackBufferIndex],
+    CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx::GSwapBuffers[Dx::GBackBufferIndex],
                                                                       D3D12_RESOURCE_STATE_PRESENT,
                                                                       D3D12_RESOURCE_STATE_RENDER_TARGET));
 }
 
 static void
-FEndFrame(TDirectX12& Dx)
+FEndFrame()
 {
-    Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx.SwapBuffers[Dx.BackBufferIndex],
-                                                                         D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                                         D3D12_RESOURCE_STATE_PRESENT));
-    VHR(Dx.CmdList->Close());
+    Dx::GCmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(Dx::GSwapBuffers[Dx::GBackBufferIndex],
+                                                                           D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                                           D3D12_RESOURCE_STATE_PRESENT));
+    VHR(Dx::GCmdList->Close());
 
-    Dx.CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx.CmdList);
+    Dx::GCmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx::GCmdList);
 }
 
 } // namespace prv
@@ -186,9 +185,8 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     SetProcessDPIAware();
     ImGui::CreateContext();
 
-    TDirectX12 Dx = {};
-    Dx.Window = prv::FInitializeWindow(KExperimentName, KExperimentResolutionX, KExperimentResolutionY);
-    FInitializeDirectX12(Dx);
+    Dx::GWindow = prv::FInitializeWindow(KExperimentName, KExperimentResolutionX, KExperimentResolutionY);
+    Dx::FInit();
 
     ImGuiIO& Io = ImGui::GetIO();
     Io.KeyMap[ImGuiKey_Tab] = VK_TAB;
@@ -210,23 +208,23 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     Io.KeyMap[ImGuiKey_X] = 'X';
     Io.KeyMap[ImGuiKey_Y] = 'Y';
     Io.KeyMap[ImGuiKey_Z] = 'Z';
-    Io.ImeWindowHandle = Dx.Window;
+    Io.ImeWindowHandle = Dx::GWindow;
     Io.RenderDrawListsFn = nullptr;
-    Io.DisplaySize = ImVec2((float)Dx.Resolution[0], (float)Dx.Resolution[1]);
+    Io.DisplaySize = ImVec2((float)Dx::GResolution[0], (float)Dx::GResolution[1]);
     ImGui::GetStyle().WindowRounding = 0.0f;
 
-    FInitializeGui(Dx);
-    FInitialize(Dx);
+    Gui::FInit();
+    GenExp002::FInit();
 
     // Upload resources to the GPU.
-    VHR(Dx.CmdList->Close());
-    Dx.CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx.CmdList);
-    FWaitForGpu(Dx);
+    VHR(Dx::GCmdList->Close());
+    Dx::GCmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&Dx::GCmdList);
+    Dx::FWaitForGpu();
 
-    for (ID3D12Resource* Resource : Dx.IntermediateResources)
+    for (ID3D12Resource* Resource : Dx::GIntermediateResources)
         SAFE_RELEASE(Resource);
 
-    Dx.IntermediateResources.clear();
+    Dx::GIntermediateResources.clear();
 
 
     for (;;)
@@ -242,7 +240,7 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         {
             double Time;
             float DeltaTime;
-            prv::FUpdateFrameStats(Dx.Window, KExperimentName, Time, DeltaTime);
+            prv::FUpdateFrameStats(Dx::GWindow, KExperimentName, Time, DeltaTime);
 
             ImGuiIO& Io = ImGui::GetIO();
             Io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
@@ -250,22 +248,20 @@ WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
             Io.KeyAlt = (GetKeyState(VK_MENU) & 0x8000) != 0;
             Io.DeltaTime = DeltaTime;
 
-            prv::FBeginFrame(Dx);
+            prv::FBeginFrame();
             ImGui::NewFrame();
-            FUpdate(Dx, Time, DeltaTime);
+            GenExp002::FUpdate(Time, DeltaTime);
             ImGui::Render();
-            FRenderGui(Dx);
-            prv::FEndFrame(Dx);
-            FPresentFrame(Dx);
+            Gui::FRender();
+            prv::FEndFrame();
+            Dx::FPresentFrame();
         }
     }
 
-    FWaitForGpu(Dx);
-    FShutdown();
-    FShutdownGui();
-    FShutdownDirectX12(Dx);
+    Dx::FWaitForGpu();
+    GenExp002::FShutdown();
+    Gui::FShutdown();
+    Dx::FShutdown();
     return 0;
 }
-
-#undef prv
 // vim: set ts=4 sw=4 expandtab:

@@ -1,5 +1,5 @@
-#define prv GenExp002
-
+namespace GenExp002
+{
 namespace prv
 {
 
@@ -9,53 +9,53 @@ struct TFrameResources
     void* PointsCpuAddress;
 };
 
-eastl::vector<ID3D12Resource*> GResources;
+static eastl::vector<ID3D12Resource*> GResources;
 
-ID3D12Resource* GCanvasTex;
-D3D12_CPU_DESCRIPTOR_HANDLE GCanvasRtv;
-D3D12_CPU_DESCRIPTOR_HANDLE GCanvasSrv;
-ID3D12PipelineState* GCanvasDisplayPso;
-ID3D12RootSignature* GCanvasDisplayRsi;
+static ID3D12Resource* GCanvasTex;
+static D3D12_CPU_DESCRIPTOR_HANDLE GCanvasRtv;
+static D3D12_CPU_DESCRIPTOR_HANDLE GCanvasSrv;
+static ID3D12PipelineState* GCanvasDisplayPso;
+static ID3D12RootSignature* GCanvasDisplayRsi;
 
-ID3D12PipelineState* GFlamesPso;
-ID3D12RootSignature* GFlamesRsi;
+static ID3D12PipelineState* GFlamesPso;
+static ID3D12RootSignature* GFlamesRsi;
 
-TFrameResources GFrames[2];
+static TFrameResources GFrames[2];
 
 static void
-FUpdate(TDirectX12& Dx, double Time, float DeltaTime)
+FUpdate(double Time, float DeltaTime)
 {
     //ImGui::ShowDemoWindow();
 
-    TFrameResources& Frame = GFrames[Dx.FrameIndex];
+    TFrameResources& Frame = GFrames[Dx::GFrameIndex];
     {
         XMFLOAT2* Ptr = (XMFLOAT2*)Frame.PointsCpuAddress;
-        *Ptr++ = XMFLOAT2(-0.5f + FRandomf(-0.05f, 0.05f), -0.5f + FRandomf(-0.05f, 0.05f));
-        *Ptr++ = XMFLOAT2(0.5f + FRandomf(-0.05f, 0.05f), 0.15f + FRandomf(-0.05f, 0.05f));
+        *Ptr++ = XMFLOAT2(-0.5f + Misc::FRandomf(-0.05f, 0.05f), -0.5f + Misc::FRandomf(-0.05f, 0.05f));
+        *Ptr++ = XMFLOAT2(0.5f + Misc::FRandomf(-0.05f, 0.05f), 0.15f + Misc::FRandomf(-0.05f, 0.05f));
     }
 
-    Dx.CmdList->OMSetRenderTargets(1, &GCanvasRtv, 0, nullptr);
-    Dx.CmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-    Dx.CmdList->SetPipelineState(GFlamesPso);
-    Dx.CmdList->SetGraphicsRootSignature(GFlamesRsi);
-    Dx.CmdList->IASetVertexBuffers(0, 1, &Frame.PointsVbv);
-    Dx.CmdList->DrawInstanced(2, 1, 0, 0);
+    Dx::GCmdList->OMSetRenderTargets(1, &GCanvasRtv, 0, nullptr);
+    Dx::GCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+    Dx::GCmdList->SetPipelineState(GFlamesPso);
+    Dx::GCmdList->SetGraphicsRootSignature(GFlamesRsi);
+    Dx::GCmdList->IASetVertexBuffers(0, 1, &Frame.PointsVbv);
+    Dx::GCmdList->DrawInstanced(2, 1, 0, 0);
 
-    Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(GCanvasTex, D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-    Dx.CmdList->OMSetRenderTargets(1, &FGetBackBufferRtv(Dx), 0, nullptr);
-    Dx.CmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Dx.CmdList->SetPipelineState(GCanvasDisplayPso);
-    Dx.CmdList->SetGraphicsRootSignature(GCanvasDisplayRsi);
-    Dx.CmdList->SetGraphicsRootDescriptorTable(0, FCopyDescriptorsToGpu(Dx, 1, GCanvasSrv));
-    Dx.CmdList->DrawInstanced(3, 1, 0, 0);
-    Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(GCanvasTex,
-                                                                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                                         D3D12_RESOURCE_STATE_RENDER_TARGET));
+    Dx::GCmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(GCanvasTex, D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+    Dx::GCmdList->OMSetRenderTargets(1, &Dx::FGetBackBufferRtv(), 0, nullptr);
+    Dx::GCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Dx::GCmdList->SetPipelineState(GCanvasDisplayPso);
+    Dx::GCmdList->SetGraphicsRootSignature(GCanvasDisplayRsi);
+    Dx::GCmdList->SetGraphicsRootDescriptorTable(0, Dx::FCopyDescriptorsToGpu(1, GCanvasSrv));
+    Dx::GCmdList->DrawInstanced(3, 1, 0, 0);
+    Dx::GCmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(GCanvasTex,
+                                                                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                                                                           D3D12_RESOURCE_STATE_RENDER_TARGET));
 }
 
 static void
-FInitializeFrameResources(TDirectX12& Dx, unsigned FrameIndex)
+FInitFrameResources(unsigned FrameIndex)
 {
     TFrameResources& Frame = GFrames[FrameIndex];
 
@@ -63,10 +63,10 @@ FInitializeFrameResources(TDirectX12& Dx, unsigned FrameIndex)
     {
         const unsigned KSize = 128 * 1024;
         ID3D12Resource* Buffer = GResources.push_back();
-        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-                                               &CD3DX12_RESOURCE_DESC::Buffer(KSize),
-                                               D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                               IID_PPV_ARGS(&Buffer)));
+        VHR(Dx::GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+                                                 &CD3DX12_RESOURCE_DESC::Buffer(KSize),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                 IID_PPV_ARGS(&Buffer)));
 
         VHR(Buffer->Map(0, &CD3DX12_RANGE(0, 0), &Frame.PointsCpuAddress));
 
@@ -77,33 +77,33 @@ FInitializeFrameResources(TDirectX12& Dx, unsigned FrameIndex)
 }
 
 static void
-FInitializeResources(TDirectX12& Dx)
+FInitResources()
 {
     // Canvas resources
     {
-        auto ImageDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R16G16B16A16_FLOAT, Dx.Resolution[0], Dx.Resolution[1]);
+        auto ImageDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R16G16B16A16_FLOAT, Dx::GResolution[0], Dx::GResolution[1]);
         ImageDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
         const auto ClearValue = CD3DX12_CLEAR_VALUE(DXGI_FORMAT_R16G16B16A16_FLOAT, XMVECTORF32{ 1.0f, 1.0f, 1.0f, 0.0f });
 
-        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-                                               &ImageDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &ClearValue,
-                                               IID_PPV_ARGS(&GCanvasTex)));
+        VHR(Dx::GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
+                                                 &ImageDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &ClearValue,
+                                                 IID_PPV_ARGS(&GCanvasTex)));
 
-        FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1, GCanvasRtv);
-        Dx.Device->CreateRenderTargetView(GCanvasTex, nullptr, GCanvasRtv);
+        Dx::FAllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 1, GCanvasRtv);
+        Dx::GDevice->CreateRenderTargetView(GCanvasTex, nullptr, GCanvasRtv);
 
-        FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, GCanvasSrv);
-        Dx.Device->CreateShaderResourceView(GCanvasTex, nullptr, GCanvasSrv);
+        Dx::FAllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, GCanvasSrv);
+        Dx::GDevice->CreateShaderResourceView(GCanvasTex, nullptr, GCanvasSrv);
 
-        Dx.CmdList->OMSetRenderTargets(1, &GCanvasRtv, 0, nullptr);
-        Dx.CmdList->ClearRenderTargetView(GCanvasRtv, ClearValue.Color, 0, nullptr);
+        Dx::GCmdList->OMSetRenderTargets(1, &GCanvasRtv, 0, nullptr);
+        Dx::GCmdList->ClearRenderTargetView(GCanvasRtv, ClearValue.Color, 0, nullptr);
     }
 
     // CanvasDisplay shaders
     {
-        eastl::vector<uint8_t> CsoVs = FLoadFile("data/shaders/display-canvas-vs.cso");
-        eastl::vector<uint8_t> CsoPs = FLoadFile("data/shaders/display-canvas-ps.cso");
+        eastl::vector<uint8_t> CsoVs = Misc::FLoadFile("data/shaders/display-canvas-vs.cso");
+        eastl::vector<uint8_t> CsoPs = Misc::FLoadFile("data/shaders/display-canvas-ps.cso");
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
         PsoDesc.VS = { CsoVs.data(), CsoVs.size() };
@@ -117,14 +117,14 @@ FInitializeResources(TDirectX12& Dx)
         PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
         PsoDesc.SampleDesc.Count = 1;
 
-        VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&GCanvasDisplayPso)));
-        VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&GCanvasDisplayRsi)));
+        VHR(Dx::GDevice->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&GCanvasDisplayPso)));
+        VHR(Dx::GDevice->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&GCanvasDisplayRsi)));
     }
 
     // Line shaders
     {
-        eastl::vector<uint8_t> CsoVs = FLoadFile("data/shaders/flames-vs.cso");
-        eastl::vector<uint8_t> CsoPs = FLoadFile("data/shaders/flames-ps.cso");
+        eastl::vector<uint8_t> CsoVs = Misc::FLoadFile("data/shaders/flames-vs.cso");
+        eastl::vector<uint8_t> CsoPs = Misc::FLoadFile("data/shaders/flames-ps.cso");
 
         D3D12_INPUT_ELEMENT_DESC InputElements[] =
         {
@@ -146,8 +146,8 @@ FInitializeResources(TDirectX12& Dx)
         PsoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
         PsoDesc.SampleDesc.Count = 1;
 
-        VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&GFlamesPso)));
-        VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&GFlamesRsi)));
+        VHR(Dx::GDevice->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&GFlamesPso)));
+        VHR(Dx::GDevice->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&GFlamesRsi)));
     }
 }
 
@@ -162,17 +162,17 @@ FShutdown()
 } // namespace prv
 
 static void
-FUpdate(TDirectX12& Dx, double Time, float DeltaTime)
+FUpdate(double Time, float DeltaTime)
 {
-    prv::FUpdate(Dx, Time, DeltaTime);
+    prv::FUpdate(Time, DeltaTime);
 }
 
 static void
-FInitialize(TDirectX12& Dx)
+FInit()
 {
-    prv::FInitializeResources(Dx);
-    prv::FInitializeFrameResources(Dx, 0);
-    prv::FInitializeFrameResources(Dx, 1);
+    prv::FInitResources();
+    prv::FInitFrameResources(0);
+    prv::FInitFrameResources(1);
 }
 
 static void
@@ -181,5 +181,5 @@ FShutdown()
     prv::FShutdown();
 }
 
-#undef prv
+} // namespace GenExp002
 // vim: set ts=4 sw=4 expandtab:

@@ -1,5 +1,5 @@
-#define prv GenExp002Imgui
-
+namespace Gui
+{
 namespace prv
 {
 
@@ -16,16 +16,16 @@ struct TFrameResources
     D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 };
 
-TFrameResources GFrameResources[2];
-ID3D12RootSignature* GRootSignature;
-ID3D12PipelineState* GPipelineState;
-ID3D12Resource* GFontTexture;
-D3D12_CPU_DESCRIPTOR_HANDLE GFontTextureDescriptor;
+static TFrameResources GFrameResources[2];
+static ID3D12RootSignature* GRootSignature;
+static ID3D12PipelineState* GPipelineState;
+static ID3D12Resource* GFontTexture;
+static D3D12_CPU_DESCRIPTOR_HANDLE GFontTextureDescriptor;
 
 } // namespace prv
 
 static void
-FInitializeGui(TDirectX12& Dx)
+FInit()
 {
     uint8_t* Pixels;
     int Width, Height;
@@ -33,37 +33,37 @@ FInitializeGui(TDirectX12& Dx)
     ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&Pixels, &Width, &Height);
 
     const auto TextureDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, (UINT64)Width, Height);
-    VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-                                           &TextureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                           IID_PPV_ARGS(&prv::GFontTexture)));
+    VHR(Dx::GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
+                                             &TextureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                             IID_PPV_ARGS(&prv::GFontTexture)));
 
     ID3D12Resource* IntermediateBuffer = nullptr;
     {
         uint64_t BufferSize;
-        Dx.Device->GetCopyableFootprints(&TextureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &BufferSize);
+        Dx::GDevice->GetCopyableFootprints(&TextureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &BufferSize);
 
         const auto BufferDesc = CD3DX12_RESOURCE_DESC::Buffer(BufferSize);
-        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-                                               &BufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                               IID_PPV_ARGS(&IntermediateBuffer)));
+        VHR(Dx::GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+                                                 &BufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                 IID_PPV_ARGS(&IntermediateBuffer)));
 
-        Dx.IntermediateResources.push_back(IntermediateBuffer);
+        Dx::GIntermediateResources.push_back(IntermediateBuffer);
     }
 
     D3D12_SUBRESOURCE_DATA TextureData = { Pixels, (LONG_PTR)(Width * 4) };
-    UpdateSubresources<1>(Dx.CmdList, prv::GFontTexture, IntermediateBuffer, 0, 0, 1, &TextureData);
+    UpdateSubresources<1>(Dx::GCmdList, prv::GFontTexture, IntermediateBuffer, 0, 0, 1, &TextureData);
 
-    Dx.CmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(prv::GFontTexture,
-                                                                         D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+    Dx::GCmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(prv::GFontTexture,
+                                                                           D3D12_RESOURCE_STATE_COPY_DEST,
+                                                                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
     D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
     SrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     SrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     SrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     SrvDesc.Texture2D.MipLevels = 1;
 
-    FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, prv::GFontTextureDescriptor);
-    Dx.Device->CreateShaderResourceView(prv::GFontTexture, &SrvDesc, prv::GFontTextureDescriptor);
+    Dx::FAllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, prv::GFontTextureDescriptor);
+    Dx::GDevice->CreateShaderResourceView(prv::GFontTexture, &SrvDesc, prv::GFontTextureDescriptor);
 
 
     D3D12_INPUT_ELEMENT_DESC InputElements[] =
@@ -73,8 +73,8 @@ FInitializeGui(TDirectX12& Dx)
         { "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
-    eastl::vector<uint8_t> CsoVs = FLoadFile("data/shaders/imgui-vs.cso");
-    eastl::vector<uint8_t> CsoPs = FLoadFile("data/shaders/imgui-ps.cso");
+    eastl::vector<uint8_t> CsoVs = Misc::FLoadFile("data/shaders/imgui-vs.cso");
+    eastl::vector<uint8_t> CsoPs = Misc::FLoadFile("data/shaders/imgui-ps.cso");
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC PsoDesc = {};
     PsoDesc.InputLayout = { InputElements, (unsigned)eastl::size(InputElements) };
@@ -96,19 +96,19 @@ FInitializeGui(TDirectX12& Dx)
     PsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     PsoDesc.SampleDesc.Count = 1;
 
-    VHR(Dx.Device->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&prv::GPipelineState)));
-    VHR(Dx.Device->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&prv::GRootSignature)));
+    VHR(Dx::GDevice->CreateGraphicsPipelineState(&PsoDesc, IID_PPV_ARGS(&prv::GPipelineState)));
+    VHR(Dx::GDevice->CreateRootSignature(0, CsoVs.data(), CsoVs.size(), IID_PPV_ARGS(&prv::GRootSignature)));
 }
 
 static void
-FRenderGui(TDirectX12& Dx)
+FRender()
 {
     ImDrawData* DrawData = ImGui::GetDrawData();
     if (!DrawData || DrawData->TotalVtxCount == 0)
         return;
 
     ImGuiIO& Io = ImGui::GetIO();
-    prv::TFrameResources& Frame = prv::GFrameResources[Dx.FrameIndex];
+    prv::TFrameResources& Frame = prv::GFrameResources[Dx::GFrameIndex];
 
     const int ViewportWidth = (int)(Io.DisplaySize.x * Io.DisplayFramebufferScale.x);
     const int ViewportHeight = (int)(Io.DisplaySize.y * Io.DisplayFramebufferScale.y);
@@ -118,10 +118,10 @@ FRenderGui(TDirectX12& Dx)
     if (Frame.VertexBufferSize == 0 || Frame.VertexBufferSize < DrawData->TotalVtxCount * sizeof(ImDrawVert))
     {
         SAFE_RELEASE(Frame.VertexBuffer);
-        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-                                               &CD3DX12_RESOURCE_DESC::Buffer(DrawData->TotalVtxCount * sizeof(ImDrawVert)),
-                                               D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                               IID_PPV_ARGS(&Frame.VertexBuffer)));
+        VHR(Dx::GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+                                                 &CD3DX12_RESOURCE_DESC::Buffer(DrawData->TotalVtxCount * sizeof(ImDrawVert)),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                 IID_PPV_ARGS(&Frame.VertexBuffer)));
 
         VHR(Frame.VertexBuffer->Map(0, &CD3DX12_RANGE(0, 0), &Frame.VertexBufferCpuAddress));
 
@@ -136,9 +136,10 @@ FRenderGui(TDirectX12& Dx)
     if (Frame.IndexBufferSize == 0 || Frame.IndexBufferSize < DrawData->TotalIdxCount * sizeof(ImDrawIdx))
     {
         SAFE_RELEASE(Frame.IndexBuffer);
-        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-                                               &CD3DX12_RESOURCE_DESC::Buffer(DrawData->TotalIdxCount * sizeof(ImDrawIdx)),
-                                               D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&Frame.IndexBuffer)));
+        VHR(Dx::GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+                                                 &CD3DX12_RESOURCE_DESC::Buffer(DrawData->TotalIdxCount * sizeof(ImDrawIdx)),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                 IID_PPV_ARGS(&Frame.IndexBuffer)));
 
         VHR(Frame.IndexBuffer->Map(0, &CD3DX12_RANGE(0, 0), &Frame.IndexBufferCpuAddress));
 
@@ -165,7 +166,7 @@ FRenderGui(TDirectX12& Dx)
     }
 
     D3D12_GPU_VIRTUAL_ADDRESS ConstantBufferGpuAddress;
-    void* ConstantBufferCpuAddress = FAllocateGpuUploadMemory(Dx, 64, ConstantBufferGpuAddress);
+    void* ConstantBufferCpuAddress = Dx::FAllocateGpuUploadMemory(64, ConstantBufferGpuAddress);
 
     // update constant buffer
     {
@@ -178,17 +179,17 @@ FRenderGui(TDirectX12& Dx)
     }
 
     D3D12_VIEWPORT Viewport = { 0.0f, 0.0f, (float)ViewportWidth, (float)ViewportHeight, 0.0f, 1.0f };
-    Dx.CmdList->RSSetViewports(1, &Viewport);
+    Dx::GCmdList->RSSetViewports(1, &Viewport);
 
-    Dx.CmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Dx.CmdList->SetPipelineState(prv::GPipelineState);
+    Dx::GCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    Dx::GCmdList->SetPipelineState(prv::GPipelineState);
 
-    Dx.CmdList->SetGraphicsRootSignature(prv::GRootSignature);
-    Dx.CmdList->SetGraphicsRootConstantBufferView(0, ConstantBufferGpuAddress);
-    Dx.CmdList->SetGraphicsRootDescriptorTable(1, FCopyDescriptorsToGpu(Dx, 1, prv::GFontTextureDescriptor));
+    Dx::GCmdList->SetGraphicsRootSignature(prv::GRootSignature);
+    Dx::GCmdList->SetGraphicsRootConstantBufferView(0, ConstantBufferGpuAddress);
+    Dx::GCmdList->SetGraphicsRootDescriptorTable(1, Dx::FCopyDescriptorsToGpu(1, prv::GFontTextureDescriptor));
 
-    Dx.CmdList->IASetVertexBuffers(0, 1, &Frame.VertexBufferView);
-    Dx.CmdList->IASetIndexBuffer(&Frame.IndexBufferView);
+    Dx::GCmdList->IASetVertexBuffers(0, 1, &Frame.VertexBufferView);
+    Dx::GCmdList->IASetIndexBuffer(&Frame.IndexBufferView);
 
 
     int VertexOffset = 0;
@@ -208,8 +209,8 @@ FRenderGui(TDirectX12& Dx)
             else
             {
                 D3D12_RECT R = { (LONG)Cmd->ClipRect.x, (LONG)Cmd->ClipRect.y, (LONG)Cmd->ClipRect.z, (LONG)Cmd->ClipRect.w };
-                Dx.CmdList->RSSetScissorRects(1, &R);
-                Dx.CmdList->DrawIndexedInstanced(Cmd->ElemCount, 1, IndexOffset, VertexOffset, 0);
+                Dx::GCmdList->RSSetScissorRects(1, &R);
+                Dx::GCmdList->DrawIndexedInstanced(Cmd->ElemCount, 1, IndexOffset, VertexOffset, 0);
             }
             IndexOffset += Cmd->ElemCount;
         }
@@ -218,10 +219,10 @@ FRenderGui(TDirectX12& Dx)
 }
 
 static void
-FShutdownGui()
+FShutdown()
 {
     // @Incomplete: Release all resources.
 }
 
-#undef prv
+} // namespace Gui
 // vim: set ts=4 sw=4 expandtab:

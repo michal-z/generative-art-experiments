@@ -1,42 +1,77 @@
-#define prv GenExp002DirectX12
-
+namespace Dx
+{
 namespace prv
 {
 
+struct TDescriptorHeap
+{
+    ID3D12DescriptorHeap* Heap;
+    D3D12_CPU_DESCRIPTOR_HANDLE CpuStart;
+    D3D12_GPU_DESCRIPTOR_HANDLE GpuStart;
+    unsigned Size;
+    unsigned Capacity;
+};
+
+struct TGpuMemoryHeap
+{
+    ID3D12Resource* Heap;
+    uint8_t* CpuStart;
+    D3D12_GPU_VIRTUAL_ADDRESS GpuStart;
+    unsigned Size;
+    unsigned Capacity;
+};
+
+static TDescriptorHeap GRenderTargetHeap;
+static TDescriptorHeap GDepthStencilHeap;
+
+// shader visible descriptor heaps
+static TDescriptorHeap GShaderVisibleHeaps[2];
+
+// non-shader visible descriptor heap
+static TDescriptorHeap GNonShaderVisibleHeap;
+
+static TGpuMemoryHeap GUploadMemoryHeaps[2];
+
+static IDXGISwapChain3* GSwapChain;
+static ID3D12Fence* GFrameFence;
+static HANDLE GFrameFenceEvent;
+
+static uint64_t GFrameCount;
+
+
 static TDescriptorHeap&
-FGetDescriptorHeap(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRIPTOR_HEAP_FLAGS Flags,
-                   unsigned& OutDescriptorSize)
+FGetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE Type, D3D12_DESCRIPTOR_HEAP_FLAGS Flags, unsigned& OutDescriptorSize)
 {
     if (Type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
     {
-        OutDescriptorSize = Dx.DescriptorSizeRtv;
-        return Dx.RenderTargetHeap;
+        OutDescriptorSize = GDescriptorSizeRtv;
+        return GRenderTargetHeap;
     }
     else if (Type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV)
     {
-        OutDescriptorSize = Dx.DescriptorSizeRtv;
-        return Dx.DepthStencilHeap;
+        OutDescriptorSize = GDescriptorSizeRtv;
+        return GDepthStencilHeap;
     }
     else if (Type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)
     {
-        OutDescriptorSize = Dx.DescriptorSize;
+        OutDescriptorSize = GDescriptorSize;
         if (Flags == D3D12_DESCRIPTOR_HEAP_FLAG_NONE)
-            return Dx.NonShaderVisibleHeap;
+            return GNonShaderVisibleHeap;
         else if (Flags == D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
-            return Dx.ShaderVisibleHeaps[Dx.FrameIndex];
+            return GShaderVisibleHeaps[GFrameIndex];
     }
     assert(0);
     OutDescriptorSize = 0;
-    return Dx.NonShaderVisibleHeap;
+    return GNonShaderVisibleHeap;
 }
 
 } // namespace prv
 
 static void
-FAllocateDescriptors(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE& OutFirst)
+FAllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE Type, unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE& OutFirst)
 {
     unsigned DescriptorSize;
-    TDescriptorHeap& DescriptorHeap = prv::FGetDescriptorHeap(Dx, Type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, DescriptorSize);
+    prv::TDescriptorHeap& DescriptorHeap = prv::FGetDescriptorHeap(Type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, DescriptorSize);
 
     assert((DescriptorHeap.Size + Count) < DescriptorHeap.Capacity);
 
@@ -46,13 +81,11 @@ FAllocateDescriptors(TDirectX12& Dx, D3D12_DESCRIPTOR_HEAP_TYPE Type, unsigned C
 }
 
 static void
-FAllocateGpuDescriptors(TDirectX12& Dx, unsigned Count,
-                        D3D12_CPU_DESCRIPTOR_HANDLE& OutFirstCpu,
-                        D3D12_GPU_DESCRIPTOR_HANDLE& OutFirstGpu)
+FAllocateGpuDescriptors(unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE& OutFirstCpu, D3D12_GPU_DESCRIPTOR_HANDLE& OutFirstGpu)
 {
     unsigned DescriptorSize;
-    TDescriptorHeap& DescriptorHeap = prv::FGetDescriptorHeap(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                                                              D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, DescriptorSize);
+    prv::TDescriptorHeap& DescriptorHeap = prv::FGetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                                                   D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, DescriptorSize);
 
     assert((DescriptorHeap.Size + Count) < DescriptorHeap.Capacity);
 
@@ -63,38 +96,38 @@ FAllocateGpuDescriptors(TDirectX12& Dx, unsigned Count,
 }
 
 static D3D12_GPU_DESCRIPTOR_HANDLE
-FCopyDescriptorsToGpu(TDirectX12& Dx, unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE Source)
+FCopyDescriptorsToGpu(unsigned Count, D3D12_CPU_DESCRIPTOR_HANDLE Source)
 {
     D3D12_CPU_DESCRIPTOR_HANDLE DestinationCpu;
     D3D12_GPU_DESCRIPTOR_HANDLE DestinationGpu;
-    FAllocateGpuDescriptors(Dx, Count, DestinationCpu, DestinationGpu);
-    Dx.Device->CopyDescriptorsSimple(Count, DestinationCpu, Source, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    FAllocateGpuDescriptors(Count, DestinationCpu, DestinationGpu);
+    GDevice->CopyDescriptorsSimple(Count, DestinationCpu, Source, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     return DestinationGpu;
 }
 
 static inline D3D12_CPU_DESCRIPTOR_HANDLE
-FGetBackBufferRtv(TDirectX12& Dx)
+FGetBackBufferRtv()
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE BackBufferRtv = Dx.RenderTargetHeap.CpuStart;
-    BackBufferRtv.ptr += Dx.BackBufferIndex * Dx.DescriptorSizeRtv;
+    D3D12_CPU_DESCRIPTOR_HANDLE BackBufferRtv = prv::GRenderTargetHeap.CpuStart;
+    BackBufferRtv.ptr += GBackBufferIndex * GDescriptorSizeRtv;
     return BackBufferRtv;
 }
 
 static inline void
-FSetDescriptorHeap(TDirectX12& Dx)
+FSetDescriptorHeap()
 {
-    Dx.CmdList->SetDescriptorHeaps(1, &Dx.ShaderVisibleHeaps[Dx.FrameIndex].Heap);
+    GCmdList->SetDescriptorHeaps(1, &prv::GShaderVisibleHeaps[GFrameIndex].Heap);
 }
 
 static void*
-FAllocateGpuUploadMemory(TDirectX12& Dx, unsigned Size, D3D12_GPU_VIRTUAL_ADDRESS& OutGpuAddress)
+FAllocateGpuUploadMemory(unsigned Size, D3D12_GPU_VIRTUAL_ADDRESS& OutGpuAddress)
 {
     assert(Size > 0);
 
     if (Size & 0xff) // always align to 256 bytes
         Size = (Size + 255) & ~0xff;
 
-    TGpuMemoryHeap& UploadHeap = Dx.UploadMemoryHeaps[Dx.FrameIndex];
+    prv::TGpuMemoryHeap& UploadHeap = prv::GUploadMemoryHeaps[GFrameIndex];
     assert((UploadHeap.Size + Size) < UploadHeap.Capacity);
 
     void* CpuAddr = UploadHeap.CpuStart + UploadHeap.Size;
@@ -105,7 +138,7 @@ FAllocateGpuUploadMemory(TDirectX12& Dx, unsigned Size, D3D12_GPU_VIRTUAL_ADDRES
 }
 
 static void
-FInitializeDirectX12(TDirectX12& Dx)
+FInit()
 {
     IDXGIFactory4* Factory;
 #ifdef _DEBUG
@@ -130,7 +163,7 @@ FInitializeDirectX12(TDirectX12& Dx)
         }
     }
 #endif
-    if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&Dx.Device))))
+    if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&GDevice))))
     {
         // @Incomplete: Add MessageBox.
         return;
@@ -140,198 +173,206 @@ FInitializeDirectX12(TDirectX12& Dx)
     CmdQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     CmdQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
     CmdQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    VHR(Dx.Device->CreateCommandQueue(&CmdQueueDesc, IID_PPV_ARGS(&Dx.CmdQueue)));
+    VHR(GDevice->CreateCommandQueue(&CmdQueueDesc, IID_PPV_ARGS(&GCmdQueue)));
 
     DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
     SwapChainDesc.BufferCount = 4;
     SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    SwapChainDesc.OutputWindow = Dx.Window;
+    SwapChainDesc.OutputWindow = GWindow;
     SwapChainDesc.SampleDesc.Count = 1;
     SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     SwapChainDesc.Windowed = TRUE;
 
     IDXGISwapChain* TempSwapChain;
-    VHR(Factory->CreateSwapChain(Dx.CmdQueue, &SwapChainDesc, &TempSwapChain));
-    VHR(TempSwapChain->QueryInterface(IID_PPV_ARGS(&Dx.SwapChain)));
+    VHR(Factory->CreateSwapChain(GCmdQueue, &SwapChainDesc, &TempSwapChain));
+    VHR(TempSwapChain->QueryInterface(IID_PPV_ARGS(&prv::GSwapChain)));
     SAFE_RELEASE(TempSwapChain);
     SAFE_RELEASE(Factory);
 
     RECT Rect;
-    GetClientRect(Dx.Window, &Rect);
-    Dx.Resolution[0] = (unsigned)Rect.right;
-    Dx.Resolution[1] = (unsigned)Rect.bottom;
+    GetClientRect(GWindow, &Rect);
+    GResolution[0] = (unsigned)Rect.right;
+    GResolution[1] = (unsigned)Rect.bottom;
 
     for (unsigned Index = 0; Index < 2; ++Index)
-        VHR(Dx.Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&Dx.CmdAlloc[Index])));
+        VHR(GDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&GCmdAlloc[Index])));
 
-    Dx.DescriptorSize = Dx.Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    Dx.DescriptorSizeRtv = Dx.Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    GDescriptorSize = GDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    GDescriptorSizeRtv = GDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     // Render Target Descriptor Heap
     {
-        Dx.RenderTargetHeap.Size = 0;
-        Dx.RenderTargetHeap.Capacity = 16;
-        Dx.RenderTargetHeap.CpuStart.ptr = 0;
-        Dx.RenderTargetHeap.GpuStart.ptr = 0;
+        prv::GRenderTargetHeap.Size = 0;
+        prv::GRenderTargetHeap.Capacity = 16;
+        prv::GRenderTargetHeap.CpuStart.ptr = 0;
+        prv::GRenderTargetHeap.GpuStart.ptr = 0;
 
         D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
-        HeapDesc.NumDescriptors = Dx.RenderTargetHeap.Capacity;
+        HeapDesc.NumDescriptors = prv::GRenderTargetHeap.Capacity;
         HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        VHR(Dx.Device->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Dx.RenderTargetHeap.Heap)));
-        Dx.RenderTargetHeap.CpuStart = Dx.RenderTargetHeap.Heap->GetCPUDescriptorHandleForHeapStart();
+        VHR(GDevice->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&prv::GRenderTargetHeap.Heap)));
+        prv::GRenderTargetHeap.CpuStart = prv::GRenderTargetHeap.Heap->GetCPUDescriptorHandleForHeapStart();
     }
+
     // Depth Stencil Descriptor Heap
     {
-        Dx.DepthStencilHeap.Size = 0;
-        Dx.DepthStencilHeap.Capacity = 8;
-        Dx.DepthStencilHeap.CpuStart.ptr = 0;
-        Dx.DepthStencilHeap.GpuStart.ptr = 0;
+        prv::GDepthStencilHeap.Size = 0;
+        prv::GDepthStencilHeap.Capacity = 8;
+        prv::GDepthStencilHeap.CpuStart.ptr = 0;
+        prv::GDepthStencilHeap.GpuStart.ptr = 0;
 
         D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
-        HeapDesc.NumDescriptors = Dx.DepthStencilHeap.Capacity;
+        HeapDesc.NumDescriptors = prv::GDepthStencilHeap.Capacity;
         HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
         HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        VHR(Dx.Device->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Dx.DepthStencilHeap.Heap)));
-        Dx.DepthStencilHeap.CpuStart = Dx.DepthStencilHeap.Heap->GetCPUDescriptorHandleForHeapStart();
+        VHR(GDevice->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&prv::GDepthStencilHeap.Heap)));
+        prv::GDepthStencilHeap.CpuStart = prv::GDepthStencilHeap.Heap->GetCPUDescriptorHandleForHeapStart();
     }
+
     // Shader Visible Descriptor Heaps
     {
         for (unsigned Index = 0; Index < 2; ++Index)
         {
-            Dx.ShaderVisibleHeaps[Index].Size = 0;
-            Dx.ShaderVisibleHeaps[Index].Capacity = 10000;
-            Dx.ShaderVisibleHeaps[Index].CpuStart.ptr = 0;
-            Dx.ShaderVisibleHeaps[Index].GpuStart.ptr = 0;
+            prv::TDescriptorHeap& Heap = prv::GShaderVisibleHeaps[Index];
+
+            Heap.Size = 0;
+            Heap.Capacity = 10000;
+            Heap.CpuStart.ptr = 0;
+            Heap.GpuStart.ptr = 0;
 
             D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
-            HeapDesc.NumDescriptors = Dx.ShaderVisibleHeaps[Index].Capacity;
+            HeapDesc.NumDescriptors = Heap.Capacity;
             HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
             HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-            VHR(Dx.Device->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Dx.ShaderVisibleHeaps[Index].Heap)));
+            VHR(GDevice->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Heap.Heap)));
 
-            Dx.ShaderVisibleHeaps[Index].CpuStart = Dx.ShaderVisibleHeaps[Index].Heap->GetCPUDescriptorHandleForHeapStart();
-            Dx.ShaderVisibleHeaps[Index].GpuStart = Dx.ShaderVisibleHeaps[Index].Heap->GetGPUDescriptorHandleForHeapStart();
+            Heap.CpuStart = Heap.Heap->GetCPUDescriptorHandleForHeapStart();
+            Heap.GpuStart = Heap.Heap->GetGPUDescriptorHandleForHeapStart();
         }
     }
+
     // Non-Shader Visible Descriptor Heap
     {
-        Dx.NonShaderVisibleHeap.Size = 0;
-        Dx.NonShaderVisibleHeap.Capacity = 10000;
-        Dx.NonShaderVisibleHeap.CpuStart.ptr = 0;
-        Dx.NonShaderVisibleHeap.GpuStart.ptr = 0;
+        prv::GNonShaderVisibleHeap.Size = 0;
+        prv::GNonShaderVisibleHeap.Capacity = 10000;
+        prv::GNonShaderVisibleHeap.CpuStart.ptr = 0;
+        prv::GNonShaderVisibleHeap.GpuStart.ptr = 0;
 
         D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
-        HeapDesc.NumDescriptors = Dx.NonShaderVisibleHeap.Capacity;
+        HeapDesc.NumDescriptors = prv::GNonShaderVisibleHeap.Capacity;
         HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        VHR(Dx.Device->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&Dx.NonShaderVisibleHeap.Heap)));
-        Dx.NonShaderVisibleHeap.CpuStart = Dx.NonShaderVisibleHeap.Heap->GetCPUDescriptorHandleForHeapStart();
+        VHR(GDevice->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&prv::GNonShaderVisibleHeap.Heap)));
+        prv::GNonShaderVisibleHeap.CpuStart = prv::GNonShaderVisibleHeap.Heap->GetCPUDescriptorHandleForHeapStart();
     }
+
     // Upload Memory Heaps
     {
         for (unsigned Index = 0; Index < 2; ++Index)
         {
-            TGpuMemoryHeap& UploadHeap = Dx.UploadMemoryHeaps[Index];
+            prv::TGpuMemoryHeap& UploadHeap = prv::GUploadMemoryHeaps[Index];
             UploadHeap.Size = 0;
             UploadHeap.Capacity = 8*1024*1024;
             UploadHeap.CpuStart = 0;
             UploadHeap.GpuStart = 0;
 
-            VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-                                                   &CD3DX12_RESOURCE_DESC::Buffer(UploadHeap.Capacity),
-                                                   D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-                                                   IID_PPV_ARGS(&UploadHeap.Heap)));
+            VHR(GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+                                                 &CD3DX12_RESOURCE_DESC::Buffer(UploadHeap.Capacity),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                 IID_PPV_ARGS(&UploadHeap.Heap)));
 
             VHR(UploadHeap.Heap->Map(0, &CD3DX12_RANGE(0, 0), (void**)&UploadHeap.CpuStart));
 
             UploadHeap.GpuStart = UploadHeap.Heap->GetGPUVirtualAddress();
         }
     }
+
     // Swap buffer render targets
     {
         D3D12_CPU_DESCRIPTOR_HANDLE Handle;
-        FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 4, Handle);
+        FAllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 4, Handle);
 
         for (unsigned Index = 0; Index < 4; ++Index)
         {
-            VHR(Dx.SwapChain->GetBuffer(Index, IID_PPV_ARGS(&Dx.SwapBuffers[Index])));
+            VHR(prv::GSwapChain->GetBuffer(Index, IID_PPV_ARGS(&GSwapBuffers[Index])));
 
-            Dx.Device->CreateRenderTargetView(Dx.SwapBuffers[Index], nullptr, Handle);
-            Handle.ptr += Dx.DescriptorSizeRtv;
+            GDevice->CreateRenderTargetView(GSwapBuffers[Index], nullptr, Handle);
+            Handle.ptr += GDescriptorSizeRtv;
         }
     }
+
     // Depth-stencil target
     {
-        auto ImageDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, Dx.Resolution[0], Dx.Resolution[1]);
+        auto ImageDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, GResolution[0], GResolution[1]);
         ImageDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-        VHR(Dx.Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-                                               &ImageDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE,
-                                               &CD3DX12_CLEAR_VALUE(DXGI_FORMAT_D32_FLOAT, 1.0f, 0),
-                                               IID_PPV_ARGS(&Dx.DepthBuffer)));
+        VHR(GDevice->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
+                                             &ImageDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                             &CD3DX12_CLEAR_VALUE(DXGI_FORMAT_D32_FLOAT, 1.0f, 0),
+                                             IID_PPV_ARGS(&GDepthBuffer)));
         D3D12_CPU_DESCRIPTOR_HANDLE Handle;
-        FAllocateDescriptors(Dx, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, Handle);
+        FAllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, Handle);
 
         D3D12_DEPTH_STENCIL_VIEW_DESC ViewDesc = {};
         ViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
         ViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
         ViewDesc.Flags = D3D12_DSV_FLAG_NONE;
-        Dx.Device->CreateDepthStencilView(Dx.DepthBuffer, &ViewDesc, Handle);
+        GDevice->CreateDepthStencilView(GDepthBuffer, &ViewDesc, Handle);
     }
 
-    VHR(Dx.Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, Dx.CmdAlloc[0], nullptr, IID_PPV_ARGS(&Dx.CmdList)));
+    VHR(GDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, GCmdAlloc[0], nullptr, IID_PPV_ARGS(&GCmdList)));
 
-    VHR(Dx.Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Dx.FrameFence)));
-    Dx.FrameFenceEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+    VHR(GDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&prv::GFrameFence)));
+    prv::GFrameFenceEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
 }
 
 static void
-FShutdownDirectX12(TDirectX12& Dx)
+FShutdown()
 {
     // @Incomplete: Release all resources.
-    SAFE_RELEASE(Dx.CmdList);
-    SAFE_RELEASE(Dx.CmdAlloc[0]);
-    SAFE_RELEASE(Dx.CmdAlloc[1]);
-    SAFE_RELEASE(Dx.RenderTargetHeap.Heap);
-    SAFE_RELEASE(Dx.DepthStencilHeap.Heap);
+    SAFE_RELEASE(GCmdList);
+    SAFE_RELEASE(GCmdAlloc[0]);
+    SAFE_RELEASE(GCmdAlloc[1]);
+    SAFE_RELEASE(prv::GRenderTargetHeap.Heap);
+    SAFE_RELEASE(prv::GDepthStencilHeap.Heap);
     for (unsigned Index = 0; Index < 4; ++Index)
-        SAFE_RELEASE(Dx.SwapBuffers[Index]);
-    CloseHandle(Dx.FrameFenceEvent);
-    SAFE_RELEASE(Dx.FrameFence);
-    SAFE_RELEASE(Dx.SwapChain);
-    SAFE_RELEASE(Dx.CmdQueue);
-    SAFE_RELEASE(Dx.Device);
+        SAFE_RELEASE(GSwapBuffers[Index]);
+    CloseHandle(prv::GFrameFenceEvent);
+    SAFE_RELEASE(prv::GFrameFence);
+    SAFE_RELEASE(prv::GSwapChain);
+    SAFE_RELEASE(GCmdQueue);
+    SAFE_RELEASE(GDevice);
 }
 
 static void
-FPresentFrame(TDirectX12& Dx)
+FPresentFrame()
 {
-    Dx.SwapChain->Present(1, 0);
-    Dx.CmdQueue->Signal(Dx.FrameFence, ++Dx.FrameCount);
+    prv::GSwapChain->Present(1, 0);
+    GCmdQueue->Signal(prv::GFrameFence, ++prv::GFrameCount);
 
-    const uint64_t GpuFrameCount = Dx.FrameFence->GetCompletedValue();
+    const uint64_t GpuFrameCount = prv::GFrameFence->GetCompletedValue();
 
-    if ((Dx.FrameCount - GpuFrameCount) >= 2)
+    if ((prv::GFrameCount - GpuFrameCount) >= 2)
     {
-        Dx.FrameFence->SetEventOnCompletion(GpuFrameCount + 1, Dx.FrameFenceEvent);
-        WaitForSingleObject(Dx.FrameFenceEvent, INFINITE);
+        prv::GFrameFence->SetEventOnCompletion(GpuFrameCount + 1, prv::GFrameFenceEvent);
+        WaitForSingleObject(prv::GFrameFenceEvent, INFINITE);
     }
 
-    Dx.FrameIndex = !Dx.FrameIndex;
-    Dx.BackBufferIndex = Dx.SwapChain->GetCurrentBackBufferIndex();
+    GFrameIndex = !GFrameIndex;
+    GBackBufferIndex = prv::GSwapChain->GetCurrentBackBufferIndex();
 
-    Dx.ShaderVisibleHeaps[Dx.FrameIndex].Size = 0;
-    Dx.UploadMemoryHeaps[Dx.FrameIndex].Size = 0;
+    prv::GShaderVisibleHeaps[GFrameIndex].Size = 0;
+    prv::GUploadMemoryHeaps[GFrameIndex].Size = 0;
 }
 
 static void
-FWaitForGpu(TDirectX12& Dx)
+FWaitForGpu()
 {
-    Dx.CmdQueue->Signal(Dx.FrameFence, ++Dx.FrameCount);
-    Dx.FrameFence->SetEventOnCompletion(Dx.FrameCount, Dx.FrameFenceEvent);
-    WaitForSingleObject(Dx.FrameFenceEvent, INFINITE);
+    GCmdQueue->Signal(prv::GFrameFence, ++prv::GFrameCount);
+    prv::GFrameFence->SetEventOnCompletion(prv::GFrameCount, prv::GFrameFenceEvent);
+    WaitForSingleObject(prv::GFrameFenceEvent, INFINITE);
 }
 
-#undef prv
+} // namespace Dx
 // vim: set ts=4 sw=4 expandtab:
