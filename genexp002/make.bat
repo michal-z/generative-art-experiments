@@ -8,11 +8,13 @@ if "%1" == "clean" if exist %NAME%-external.pch del %NAME%-external.pch
 set FINAL=/O2 /DNDEBUG /MT
 set RELEASE=/Zi /O2 /DNDEBUG /MT
 set DEBUG=/Zi /Od /D_DEBUG /MTd
-
-if not defined CONFIG set CONFIG=%DEBUG%
-set CFLAGS=%CONFIG% /EHa- /GR- /Gy /Gw /W3 /nologo /I"..\external"
+set DEBUGNOPDB=/Od /D_DEBUG /MTd
 set LFLAGS=/incremental:no /opt:ref /machine:x64
 set FXC=fxc.exe /Ges /O3 /WX /nologo /Qstrip_reflect /Qstrip_debug /Qstrip_priv
+
+if not defined CONFIG set CONFIG=%DEBUGNOPDB%
+::/d2cgsummary
+set CFLAGS=%CONFIG% /EHa- /GR- /Gy /Gw /W3 /nologo /I"..\external" /Bt
 
 set ERROR=0
 
