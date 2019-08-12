@@ -1,0 +1,9 @@
+*.pdb
+*.ilk
+*.exe
+*.ipdb
+*.iobj
+*.user
+*.hlsl.h
+/.vs
+/x64
